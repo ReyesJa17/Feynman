@@ -116,19 +116,6 @@ llm = ChatGroq(
 
 #Prompts
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 prompt_manager = ChatPromptTemplate.from_messages(
     [
         (

@@ -66,10 +66,9 @@ prompt_unite_final_answer = PromptTemplate(
     Here is the problem: \n
     {problem} \n
     The information at your disposal to answer is: \n
-    final answer: {final_answer} \n
     Vector data base information: {vector_data_base_answer} \n
     """,
-   inputs=["problem" , "final_answer", "vector_data_base_answer"],
+   inputs=["problem" , "vector_data_base_answer"],
 )
 
 
@@ -87,6 +86,18 @@ prompt_solve_physics_problem = ChatPromptTemplate(
    inputs=["problem" ,  "vector_data_base_answer"],
 )
 
+prompt_translate_problem = ChatPromptTemplate(
+    template=
+    """
+    You are a helpful translator\n
+    Your job is to translate the answer from english to spanish\n
+    Return a JSON key "translate" with the translation. \n
+    Here is the answer to translate: \n
+    {final_answer} \n
+    """,
+   inputs=["final_answer" ],
+)
+
 
 
 
@@ -96,24 +107,24 @@ prompt_solve_physics_problem = ChatPromptTemplate(
 
 
 
-chain_unite_final_answer = prompt_unite_final_answer | llm | StrOutputParser()
+chain_unite_final_answer = prompt_unite_final_answer | llm | JsonOutputParser()
 
-chain_solve_physics_problem = prompt_solve_physics_problem | llm | StrOutputParser()
+chain_solve_physics_problem = prompt_solve_physics_problem | llm | JsonOutputParser()
 
-
+chain_translate_problem = prompt_translate_problem | llm | JsonOutputParser()
 
 
 #Graph State
 
 class GraphState(TypedDict):
     problem: str
-    main_concepts: List[str]
-    problem_type: str
-    original_formula: str
+
+
     steps_to_solve: str
-    wolfram_alpha_answer: str
+
     vector_data_base_answer: str
     final_answer: str
+    translate: str
 
 
 
@@ -135,7 +146,7 @@ def solve_physics_problem(state):
     """
 
     problem = state["problem"]
-    final_answer = chain_solve_physics_problem.invoke({"problem": problem})
+    final_answer = chain_solve_physics_problem.invoke({"problem": problem, "vector_data_base_answer": state["vector_data_base_answer"]})
     print(final_answer)
     return {"final_answer": final_answer["final_answer"]}
 
@@ -153,14 +164,28 @@ def unite_final_answer(state):
     """
 
     problem = state["problem"]
-    problem_type = state["problem_type"]
     vector_data_base_answer = get_multiple_answer(problem)
-    final_answer = chain_unite_final_answer.invoke({"problem": problem, "problem_type": problem_type,  "vector_data_base_answer": vector_data_base_answer})
+    final_answer = chain_unite_final_answer.invoke({"problem": problem,  "vector_data_base_answer": vector_data_base_answer})
     print(final_answer)
     return {"final_answer": final_answer["final_answer"]}
 
 
+def translate(state):
+    """
+    Translate the answer from english to spanish
 
+    Args:
+    state(dict): current state of the graph
+
+    Returns:
+
+    state(dict): updated state of the graph with the translation
+    """
+
+    final_answer = state["final_answer"]
+    translation = chain_translate_problem.invoke({"final_answer": final_answer})
+    print(translation)
+    return {"translate": translation["translate"]}
 
 
 #Graph
@@ -169,17 +194,21 @@ workflow_filter = StateGraph(GraphState)
 
 
 
-workflow_filter.add_node("unite_final_answer", unite_final_answer)
+workflow_filter.add_node("vector_database_answer", unite_final_answer)
 
 
 workflow_filter.add_node("solve_physics_problem",solve_physics_problem)
 
+workflow_filter.add_node("translate_problem", translate)
 
-workflow_filter.set_entry_point("solve_physics_problem")
 
-workflow_filter.add_edge("solve_physics_problem",  "unite_final_answer")
+workflow_filter.set_entry_point("vector_database_answer")
 
-workflow_filter.add_edge("unite_final_answer", END)
+workflow_filter.add_edge("vector_database_answer",  "solve_physics_problem")
+
+workflow_filter.add_edge("solve_physics_problem", "translate_problem")
+
+workflow_filter.add_edge("translate", END)
 
 
 
@@ -226,6 +255,6 @@ def run_workflow_filter(inputs):
 
     # Final generation
     pprint(value["final_answer"])
-    return value["final_answer"]
+    return value["translate"]
 
 
