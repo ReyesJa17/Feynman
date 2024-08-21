@@ -1,26 +1,19 @@
-from langchain import hub
-from langchain.agents import AgentExecutor, create_react_agent
+
 import uuid
 from operator import itemgetter
-from langchain.schema import Document
-from langchain import hub
 from langchain.prompts import PromptTemplate
-from langchain.tools import  tool
 from pprint import pprint
 from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser
 import sqlite3
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.graph import END, StateGraph
 from typing import Dict, TypedDict
 from typing import List
 import os
 from langgraph.checkpoint.sqlite import SqliteSaver
 import os
-import requests
-import urllib.parse
 from langchain.prompts import ChatPromptTemplate
 from datetime import datetime
 from raptor_feynman import answer_raptor
@@ -33,19 +26,19 @@ os.environ['LANGCHAIN_API_KEY']
 os.environ["LANGCHAIN_TRACING_V2"] 
 os.environ["LANGCHAIN_PROJECT"] 
 os.environ["WOLFRAM_ALPHA_APPID"]
-os.environ["TAVILY_API_KEY"]
+
 
 
 
 ###Choose LLM model and provider
 
 # Ollama model name
-local_llm = "llama3:70b"
+local_llm = "llama3.1"
 
-#llm = ChatOllama(model=local_llm, temperature=0)
+llm_json = ChatOllama(model=local_llm, temperature=0)
 
 llm = ChatGroq(
-            model="llama3-70b-8192",
+            model="llama-3.1-70b-versatile",
             temperature=0,
         )
 
@@ -188,7 +181,7 @@ rag_chain_generate = prompt_generate | llm | StrOutputParser()
 
 hallucination_grader = prompt_hallucination | llm | JsonOutputParser()
 
-answer_grader = prompt_grader | llm | JsonOutputParser()
+answer_grader = prompt_grader | llm                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | JsonOutputParser()
 
 
 rag_chain_recursive = (
@@ -320,33 +313,6 @@ def transform_query(state):
 
 ### Edges ###
 
-
-def route_question(state):
-    """
-    Route question to web search or RAG.
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        str: Next node to call
-    """
-
-    print("---ROUTE QUESTION---")
-    question = state["question"]
-    print(question)
-    source = question_router.invoke({"question": question})
-    print(source)
-    print(source["datasource"])
-    if source["datasource"] == "query_wolframalpha":
-        print("---ROUTE QUESTION TO WOLFRAM---")
-        return "query_wolframalpha"
-    elif source["datasource"] == "vectorstore":
-        print("---ROUTE QUESTION TO RAG---")
-        return "vectorstore"
-    elif source["datasource"] == "web_search":
-        print("---ROUTE QUESTION TO WEB SEARCH---")
-        return "web_search"
 
 
 def decide_to_generate(state):
@@ -491,13 +457,13 @@ config = {
 }
 
 
-#Tools ReAct
 
 
 
 
 
-# Create the ReAct agent and chains
+
+# Recursive RAG chain
 
 
 def format_qa_pair(question, answer):

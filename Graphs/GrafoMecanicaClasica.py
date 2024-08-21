@@ -1,17 +1,14 @@
 import getpass
 import os
-import datetime as dt
+
 from langchain_core.runnables import RunnableLambda, Runnable, RunnableConfig
 from datetime import datetime, date, timezone
 from langgraph.prebuilt import ToolNode
-from langsmith import traceable
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain.schema import Document
-from langchain.prompts import PromptTemplate
-import logging
+
+
 from typing import Optional, Union
 from datetime import date, datetime
-from langchain_core.output_parsers import StrOutputParser
+
 #from langchain import  smith
 from langchain_core.tools import tool
 from langgraph.graph import END, StateGraph
@@ -28,17 +25,15 @@ from datetime import datetime, date, timezone
 import os.path
 from langgraph.checkpoint.sqlite import SqliteSaver
 import sqlite3
-import pandas as pd
+
 from raptor_feynman import answer_raptor
 from langchain_core.runnables import ensure_config
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.messages import HumanMessage
+
 from typing import Literal
 from langchain_core.pydantic_v1 import BaseModel, Field
 #logging.basicConfig(level=logging.DEBUG)
 from typing import Callable
-import requests
-import urllib.parse
+
 from pprint import pprint
 from FilterRes import run_workflow_filter
 
@@ -114,7 +109,7 @@ conn.close()
 
 
 llm = ChatGroq(
-            model="llama3-70b-8192",
+            model="llama-3.1-70b-versatile",
             temperature=0,
         )
 
@@ -125,73 +120,13 @@ llm = ChatGroq(
 
 
 
-#Prompt for generating final answer
-prompt_unite_answer = PromptTemplate(
-    template=""" You are a final answer generator. \n
-    Your main goal is to create a concise, easy to understand and accurate answer to the user question. \n
-    The answer must always be related to physics. \n
-    If any of the context is not related to physics, do not include it in the final answer. \n
-    Here is the question: {question} \n
-    This is the wolframalpha solution to the question: {wolfram_solution} \n
-    This is the vectorstore solution to the question: {vectorstore_solution} \n
-    This is the websearch solution to the question: {websearch_solution} \n
-    Provide the final answer to the question. \n
-    Your main objective is to guide the user to the correct answer by explaining the main concepts related to the question. \n
-    """,
-    input_variables=["question", "wolfram_solution", "vectorstore_solution", "websearch_solution"],
-)
 
 
 
 
 
 
-#Problem divider
 
-prompt_divide = PromptTemplate(
-    template=
-    """
-    You are a physics assistant. Your job is to analyze a physics problem and provide a step-by-step solution. \n
-    The answer must only contain the last formula with the values substituted to have the solution. \n
-    Dont resolve the formula. \n
-    If the problem does not have a solution, just give the closest formulas that are related. \n
-    Return a json with the key 'solution' and the formula substitued as the solution. \n 
-    The problem is: {problem}. \n
-    """,
-    input_variables=["problem"],
-)
-
-
-
-#Wolfram
-
-prompt_wolfram = PromptTemplate(
-    template=""""
-    You are an assitant that rephrases a question to be more suitable for a Wolfram Alpha query. \n
-    Here is the question: {question} \n
-    Here are the rules to follow: \n
-    - ALWAYS provide the response on a json with a single key 'input' and no preamble or explanation. \n
-    - WolframAlpha understands natural language queries about entities in chemistry, physics, geography, history, art, astronomy, and more.\n
-    - WolframAlpha performs mathematical calculations, date and unit conversions, formula solving, etc.\n
-    - Convert inputs to simplified keyword queries whenever possible (e.g. convert "how many people live in France" to "France population").\n
-    - Send queries in English only; translate non-English queries before sending, then respond in the original language.\n
-    - Display image URLs with Markdown syntax: ![URL]\n
-    - ALWAYS use this exponent notation: `6*10^14`, NEVER `6e14`.\n
-    - ALWAYS use proper Markdown formatting for all math, scientific, and chemical formulas, symbols, etc.:  '$$\n[expression]\n$$' for standalone cases and '\( [expression] \)' when inline.\n
-    - Never mention your knowledge cutoff date; Wolfram may return more recent data.\n
-    - Use ONLY single-letter variable names, with or without integer subscript (e.g., n, n1, n_1).\n
-    - Use named physical constants (e.g., 'speed of light') without numerical substitution.\n
-    - Include a space between compound units (e.g., "Ω m" for "ohm*meter").\n
-    - To solve for a variable in an equation with units, consider solving a corresponding equation without units; exclude counting units (e.g., books), include genuine units (e.g., kg).\n
-    - If data for multiple properties is needed, make separate calls for each property.\n
-    - If a WolframAlpha result is not relevant to the query:\n
-    -- If Wolfram provides multiple 'Assumptions' for a query, choose the more relevant one(s) without explaining the initial result. If you are unsure, ask the user to choose.\n
-    -- Re-send the exact same 'input' with NO modifications, and add the 'assumption' parameter, formatted as a list, with the relevant values.\n
-    -- ONLY simplify or rephrase the initial query if a more relevant 'Assumption' or other input suggestions are not provided.\n
-    -- Do not explain each step unless user input is needed. Proceed directly to making a better API call based on the available assumptions.    
-    """,
-    input_variables=["question"],
-)
 
 
 prompt_manager = ChatPromptTemplate.from_messages(
@@ -217,7 +152,7 @@ prompt_static = ChatPromptTemplate.from_messages(
         (
             "system",
             "You are a helpful assistant for statics physics.\n"
-            "Your speciality topics are equilibrium, force momentum, and center of mass.\n"
+            "Your speciality topics are equilibrium, torque, center of mass, conditions of equilibrium and static rigis bodies\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -231,12 +166,12 @@ prompt_static = ChatPromptTemplate.from_messages(
 
 
 
-prompt_cinematic = ChatPromptTemplate.from_messages(
+prompt_kinematic = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant for cinematic physics.\n"
-            "Your speciality topics are time,mass,force,space,velocity,acceleration,position,displacement,uniformly accelerated rectilinear motion,unifomly rectilinear motion,Uniformly Accelerated Circular Motion and Uniform Circular Motion\n"
+            "You are a helpful assistant for kinematic physics.\n"
+            "Your speciality topics are uniform motion, uniform accelerated motion, circular motion, projictile motion, kinematics of particles,, relative motion, frames of reference, and relative velocity.\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -248,30 +183,12 @@ prompt_cinematic = ChatPromptTemplate.from_messages(
     ]
 ).partial(time=datetime.now())
 
-prompt_movement_collisions = ChatPromptTemplate.from_messages(
+prompt_conservation_momentum = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant for physics of movement and collisions.\n"
-            "Your speciality topics are linear momentum, impulse,elastic collisions,conservation of momentum, inelastic collisions, and restitution coefficient.\n"
-            "Use the provided tools to assist the user with their questions.\n"
-            "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
-            "If no tool is needed, respond with a message to the user.\n"
-            "If you need more information, ask the user for more details.\n"
-
-            "\nCurrent time: {time}.",
-        ),
-        ("placeholder", "{messages}"),
-    ]
-).partial(time=datetime.now())
-
-
-prompt_thermodynamics = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a helpful assistant for thermodynamics.\n"
-            "Your speciality topics are internal energy, heat, temperature, first law of thermodynamics, ideal gas equation,and heat capacity\n"
+            "You are a helpful assistant for physics of conservation of momentum.\n"
+            "Your speciality topics are linear momentum, collisions, conservation of linear momentum, system of particles, rocket propulsion, and impulse.\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -284,12 +201,30 @@ prompt_thermodynamics = ChatPromptTemplate.from_messages(
 ).partial(time=datetime.now())
 
 
-prompt_fluid_mechanics = ChatPromptTemplate.from_messages(
+prompt_rigid_body_dynamics = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant for fluid mechanics.\n"
-            "Your speciality topics are archimedes principle, pascal's principle, density, pressure, bernoulli's equation,continuity equation,stokes law,and reynolds number\n"
+            "You are a helpful assistant for rigid body dynamics.\n"
+            "Your speciality topics are rotational motion, moment of inertia, torque and angular acceleration, conservation of angular momentum, gyroscopic motion, rotational kinetic energy\n"
+            "Use the provided tools to assist the user with their questions.\n"
+            "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
+            "If no tool is needed, respond with a message to the user.\n"
+            "If you need more information, ask the user for more details.\n"
+
+            "\nCurrent time: {time}.",
+        ),
+        ("placeholder", "{messages}"),
+    ]
+).partial(time=datetime.now())
+
+
+prompt_lagrangian_mechanics = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a helpful assistant for lagrangian mechanics.\n"
+            "Your speciality topics are principle of least action, lagrange equations, applications of lagrangian mechanics,central forces, small oscillations\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -307,7 +242,7 @@ prompt_gravitation = ChatPromptTemplate.from_messages(
         (
             "system",
             "You are a helpful assistant for gravitation.\n"
-            "Your speciality topics are orbital motion, kepler's laws, newton's law of universal gravitation, gravitational field, and gravitational potential energy.\n"
+            "Your speciality topics are universal law of gravitation, gravitational fields, motion of satellites, gravitational potential energy,keplers laws and orbital mechanics\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -320,12 +255,12 @@ prompt_gravitation = ChatPromptTemplate.from_messages(
 ).partial(time=datetime.now())
 
 
-prompt_oscillations = ChatPromptTemplate.from_messages(
+prompt_oscillations_waves = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant for oscillations.\n"
-            "Your speciality topics are simple pendulum, damped oscillations, forced oscillations, physical pendulum, mass-spring system,phase,period,amplitude, frequency, resonance and simple armomonic motion.\n"
+            "You are a helpful assistant for oscillations and waves.\n"
+            "Your speciality topics are simple harmonic motion, energy harmonic motion, damped oscillation, forced oscillations and resonance, pendulum, mechenical waves, principle of superposition, standing waves, waves propageation, sound waves\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -338,12 +273,12 @@ prompt_oscillations = ChatPromptTemplate.from_messages(
 ).partial(time=datetime.now())
 
 
-prompt_work_and_energy = ChatPromptTemplate.from_messages(
+prompt_hamiltonian = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant for work and energy.\n"
-            "Your speciality topics are work, kinetic energy, potential energy, elastic potential energy, power, cinematic energy, gravitational potential energy, and conservation of energy.\n"
+            "You are a helpful assistant for hamiltonian mechanics.\n"
+            "Your speciality topics are hamilton equations, canonical transformations, poisson brackets, hamilton-jacobi theory, action angle variables\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -360,7 +295,7 @@ prompt_dynamics = ChatPromptTemplate.from_messages(
         (
             "system",
             "You are a helpful assistant for dynamics.\n"
-            "Your speciality topics are first law of newton, second law of newton, third law of newton, friction force, tension, normal force, weight, friction coefficient, elastic constant and elastic force.\n"
+            "Your speciality topics are first law of newton, second law of newton, third law of newton, applications of newtons law, friction, dynamics and circular motion, work and energy, conservation of energy, power, forces in non inertial frames\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -372,12 +307,12 @@ prompt_dynamics = ChatPromptTemplate.from_messages(
 ).partial(time=datetime.now())
 
 
-prompt_rotation_and_angular_moment = ChatPromptTemplate.from_messages(
+prompt_continuum_mechanics = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful assistant for advanced electromagnetism and optics.\n"
-            "Your speciality topics are angular velocity, angular acceleration, angular momentum, torque, moment of inertia, and conservation of angular momentum.\n"
+            "You are a helpful assistant for continuum mechanics.\n"
+            "Your speciality topics are stress and strain, elasticity, fluid mechanichs, viscosity, navier strokes equations\n"
             "Use the provided tools to assist the user with their questions.\n"
             "The main objective is not to provide the answer directly but to guide the user to the correct answer.\n"
             "If no tool is needed, respond with a message to the user.\n"
@@ -390,17 +325,6 @@ prompt_rotation_and_angular_moment = ChatPromptTemplate.from_messages(
 
 
 
-#Chains
-
-
-
-div_p_chain = prompt_divide | llm | JsonOutputParser()
-wolfram_chain = prompt_wolfram | llm | JsonOutputParser()
-unify_answer = prompt_unite_answer | llm | StrOutputParser()
-
-
-#Tools
-web_search_tool = TavilySearchResults(k=3)
 
 
 
@@ -478,71 +402,7 @@ def decide_to_generate(state):
 
 
 
-def divide_problem(question):
-    """
-    Divide a problem into steps
 
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        str: Decision for next node to call
-    """
-    print("---DIVIDE PROBLEM---")
-
-    res = div_p_chain.invoke({"problem": question})
-    return res
-
-
-
-def query_wolframalpha(question):
-    """
-        Uses the Wolfram Alpha API to query a question thorough a LLM
-
-        Args:
-            state (dict): The current graph state
-
-        Returns:
-            str: Decision for next node to call
-    """
-
-    answer_wolfram = []
-
-    # Retrieve the API key from the environment variable
-    appid = os.getenv("WOLFRAM_ALPHA_APPID")
-    
-    if not appid:
-        raise ValueError("WOLFRAM_API_KEY environment variable is not set")
-    
-    base_url = "https://www.wolframalpha.com/api/v1/llm-api"
-
-
-    rephrase_question=wolfram_chain.invoke({"question": question})
-    rephrase_question= str(rephrase_question["input"])
-    # URL-encode the input query
-    print(rephrase_question)
-    encoded_query = urllib.parse.quote(rephrase_question)
-    
-    # Construct the full URL with the appid and input
-    url = f"{base_url}?input={encoded_query}&appid={appid}"
-    
-    # Make the request to the API
-    response = requests.get(url)
-    print(response.text)
-
-    documents = response.text
-
-    verify_answer = extract_suggestions(documents)
-    if verify_answer == "correct":
-        return documents
-    else:
-        for suggestion in verify_answer:
-            suggestion = suggestion + " physics"
-            url = f"{base_url}?input={suggestion}&appid={appid}"
-            response = requests.get(url)
-            answer_wolfram.append(response.text)
-        return answer_wolfram
-            
 
 
 
@@ -647,15 +507,16 @@ class GraphState(TypedDict):
             Literal[
                 "manager",
                 "static",
-                "cinematic",
-                "movement_collisions",
-                "thermodynamics",
-                "fluid_mechanics",
+                "kinematic",
+                "conservation_momentum",
+                "rigid_body_dynamics",
+                "lagrangian_mechanics",
                 "gravitation",
-                "oscillations",
-                "work_and_energy",
+                "oscillations_waves",
+                "hamiltonian",
                 "dynamics",
-                "rotation_and_angular_moment",
+                "continuum_mechanics",
+
 
 
                 
@@ -665,28 +526,6 @@ class GraphState(TypedDict):
     ]
 
 # Tools
-
-@tool
-def web_search(question: str):
-    """
-    Web search based on the re-phrased question.
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        state (dict): Updates documents key with appended web results
-    """
-
-    print("---WEB SEARCH---")
-
-
-    # Web search
-    docs = web_search_tool.invoke({"query": question})
-    web_results = "\n".join([d["content"] for d in docs])
-    web_results = Document(page_content=web_results)
-
-    return {"documents": web_results, "question_theoretical_problem": question}
 
 @tool 
 def problem_solver(problem: str):
@@ -812,7 +651,7 @@ class CompleteOrEscalate(BaseModel):
 
 
 class ClassicalMechanics(BaseModel):
-    """Transfers work to a specialized assistant to handle any physics-related questions."""
+    """Transfers work to a specialized assistant to handle any classical mechanics questions."""
 
     request: str = Field(
         description="The user's request for the Feynman assistant to handle a physics-related question."
@@ -822,7 +661,7 @@ class ClassicalMechanics(BaseModel):
 
 
 class Statics(BaseModel):
-    """Transfers work to a specialized assistant to handle basic physics questions."""
+    """Transfers work to a specialized assistant to handle statics physics."""
     problem : str = Field( description="The question to solve")
     request: str = Field(
         description="The user's request for the basic physics assistant to handle a physics-related question."
@@ -835,8 +674,8 @@ class Statics(BaseModel):
             }
         }
 
-class CinematicPhysics(BaseModel):
-    """Transfers work to a specialized assistant to handle conservation laws and fundamental concepts."""
+class Dynamics(BaseModel):
+    """Transfers work to a specialized assistant to handle dynamics physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -851,8 +690,8 @@ class CinematicPhysics(BaseModel):
             }
         }
 
-class MovementCollisions(BaseModel):
-    """Transfers work to a specialized assistant to handle classical mechanics."""
+class ConservationMomentum(BaseModel):
+    """Transfers work to a specialized assistant to handle conservation of momentum questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -867,8 +706,8 @@ class MovementCollisions(BaseModel):
             }
         }                                                                                           
 
-class Thermodynamics(BaseModel):
-    """Transfers work to a specialized assistant to handle special relativity."""
+class Gravitation(BaseModel):
+    """Transfers work to a specialized assistant to handle gravitation physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -882,8 +721,8 @@ class Thermodynamics(BaseModel):
                 "request": "I want to ask a question about the special relativity.",
             }
         }
-class FluidMechanics(BaseModel):
-    """Transfers work to a specialized assistant to handle rotational motion and oscillations."""
+class OscillationsWaves(BaseModel):
+    """Transfers work to a specialized assistant to handle oscillations and waves physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -899,8 +738,8 @@ class FluidMechanics(BaseModel):
         }
 
 
-class Gravitation(BaseModel):
-    """Transfers work to a specialized assistant to handle waves and optics."""
+class RigidBodyDinamics(BaseModel):
+    """Transfers work to a specialized assistant to handle rigid body dynamics physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -916,8 +755,8 @@ class Gravitation(BaseModel):
         }
 
 
-class Oscillations(BaseModel):
-    """Transfers work to a specialized assistant to handle advanced topics in waves and light."""
+class LagrangianMechanics(BaseModel):
+    """Transfers work to a specialized assistant to handle lagrangian mechanics physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -932,8 +771,8 @@ class Oscillations(BaseModel):
             }
         }
 
-class WorkEnergy(BaseModel):
-    """Transfers work to a specialized assistant to handle quantum mechanics and statistical mechanics."""
+class HamiltonianMechanics(BaseModel):
+    """Transfers work to a specialized assistant to handle hamiltonian mechanics physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -948,8 +787,8 @@ class WorkEnergy(BaseModel):
             }
         }
 
-class Dynamics(BaseModel):
-    """Transfers work to a specialized assistant to handle thermodynamics and heat engines."""
+class ContinuumMechanics(BaseModel):
+    """Transfers work to a specialized assistant to handle continuum mechanics physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
@@ -964,23 +803,21 @@ class Dynamics(BaseModel):
             }
         }
 
-class RotationAngularMoment(BaseModel):
-    """Transfers work to a specialized assistant to handle advanced electromagnetism and optics."""
+class Kinematics(BaseModel):
+    """Transfers work to a specialized assistant to handle kinematics physics questions."""
 
     problem : str = Field( description="The question to solve")
     request: str = Field(
-        description="Any necessary followup questions the advanced electromagnetism and optics assistant needs to ask the user."
+        description="Any necessary followup questions the kinematics assistant needs to ask the user."
     )
 
     class Config:
         schema_extra = {
             "example": {
-                "problem": "How does electromagnetism work?",
-                "request": "How does electromagnetism work?",
+                "problem": "What is the kinematics?",
+                "request": "What is the kinematics?",
             }
         }
-
-
 
 # Set up the tools
 
@@ -1002,15 +839,14 @@ manager_runnable = prompt_manager | llm.bind_tools(
     +[
         ClassicalMechanics,
         Statics,
-        CinematicPhysics,
-        MovementCollisions,
-        Thermodynamics,
-        FluidMechanics,
-        Gravitation,
-        Oscillations,
-        WorkEnergy,
         Dynamics,
-        RotationAngularMoment,
+        ConservationMomentum,
+        Gravitation,
+        OscillationsWaves,
+        RigidBodyDinamics,
+        LagrangianMechanics,
+        HamiltonianMechanics,
+        ContinuumMechanics,
 
 
     ]
@@ -1018,23 +854,23 @@ manager_runnable = prompt_manager | llm.bind_tools(
 
 static_runnable = prompt_static | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-cinematic_runnable = prompt_cinematic | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+kinematics_runnable = prompt_kinematic | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-movement_collisions_runnable = prompt_movement_collisions | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+conservation_momentum_runnable = prompt_conservation_momentum | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-thermodynamics_runnable = prompt_thermodynamics | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+continuum_mechanics_runnable = prompt_continuum_mechanics | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-fluid_mechanics_runnable = prompt_fluid_mechanics | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+hamiltonian_runnable = prompt_hamiltonian | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
 gravitation_runnable = prompt_gravitation | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-oscillations_runnable = prompt_oscillations | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+oscillation_waves_runnable = prompt_oscillations_waves | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-work_and_energy_runnable = prompt_work_and_energy | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+lagrangian_mechanics_runnable = prompt_lagrangian_mechanics | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
 dynamics_runnable = prompt_dynamics | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
-rotation_and_angular_moment_runnable = prompt_rotation_and_angular_moment | llm.bind_tools(physics_tools + [CompleteOrEscalate])
+rigid_body_dynamics_runnable = prompt_rigid_body_dynamics | llm.bind_tools(physics_tools + [CompleteOrEscalate])
 
 
 
@@ -1056,6 +892,7 @@ builder.add_node("fetch_user_info", user_info)
 builder.set_entry_point("fetch_user_info")
 
 # Statics assistant
+
 builder.add_node("enter_static", create_entry_node("static", "static"))
 builder.add_node("static", Assistant(static_runnable)) 
 builder.add_edge("enter_static", "static")
@@ -1077,17 +914,17 @@ def route_static(state: GraphState) -> Literal["static_tools","leave_skill","__e
 builder.add_edge("static_tools", "static")
 builder.add_conditional_edges("static", route_static)
 
-# Cinematic physics assistant
+# Rigid Body Dynamics assistant
 
-builder.add_node("enter_cinematic", create_entry_node("cinematic", "cinematic"))
-builder.add_node("cinematic", Assistant(cinematic_runnable))
-builder.add_edge("enter_cinematic", "cinematic")
+builder.add_node("enter_rigid_body_dynamics", create_entry_node("rigid_body_dynamics", "rigid_body_dynamics"))
+builder.add_node("rigid_body_dynamics", Assistant(rigid_body_dynamics_runnable))
+builder.add_edge("enter_rigid_body_dynamics", "rigid_body_dynamics")
 builder.add_node(
-    "cinematic_tools",
+    "rigid_body_dynamics_tools",
     create_tool_node_with_fallback(physics_tools),
 )
 
-def route_cinematic(state: GraphState) -> Literal["cinematic_tools","leave_skill","__end__"]:
+def route_rigid_body_dynamics(state: GraphState) -> Literal["rigid_body_dynamics_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1095,20 +932,20 @@ def route_cinematic(state: GraphState) -> Literal["cinematic_tools","leave_skill
     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
     if did_cancel:
         return "leave_skill"
-    return "cinematic_tools"
-builder.add_edge("cinematic_tools", "cinematic")
-builder.add_conditional_edges("cinematic", route_cinematic)
+    return "rigid_body_dynamics_tools"
+builder.add_edge("rigid_body_dynamics_tools", "rigid_body_dynamics")
+builder.add_conditional_edges("rigid_body_dynamics", route_rigid_body_dynamics)
 
-# Movement collisions assistant
+# Conservation of Momentum assistant
 
-builder.add_node("enter_movement_collisions", create_entry_node("movement collisions", "movement_collisions"))
-builder.add_node("movement_collisions", Assistant(movement_collisions_runnable))
-builder.add_edge("enter_movement_collisions", "movement_collisions")
+builder.add_node("enter_conservation_momentum", create_entry_node("conservation_momentum", "conservation_momentum"))
+builder.add_node("conservation_momentum", Assistant(conservation_momentum_runnable))
+builder.add_edge("enter_conservation_momentum", "conservation_momentum")
 builder.add_node(
-    "movement_collisions_tools",
+    "conservation_momentum_tools",
     create_tool_node_with_fallback(physics_tools),
 )
-def route_movement_collisions(state: GraphState) -> Literal["movement_collisions_tools","leave_skill","__end__"]:
+def route_conservation_momentum(state: GraphState) -> Literal["conservation_momentum_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1116,20 +953,20 @@ def route_movement_collisions(state: GraphState) -> Literal["movement_collisions
     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
     if did_cancel:
         return "leave_skill"
-    return "movement_collisions_tools"
-builder.add_edge("movement_collisions_tools", "movement_collisions")
-builder.add_conditional_edges("movement_collisions", route_movement_collisions)
+    return "conservation_momentum_tools"
+builder.add_edge("conservation_momentum_tools", "conservation_momentum")
+builder.add_conditional_edges("conservation_momentum", route_conservation_momentum)
 
-# Thermodynamics assistant
+# Oscillations and Waves assistant
 
-builder.add_node("enter_thermodynamics", create_entry_node("thermodynamics", "thermodynamics"))
-builder.add_node("thermodynamics", Assistant(thermodynamics_runnable))
-builder.add_edge("enter_thermodynamics", "thermodynamics")
+builder.add_node("enter_oscillation_waves", create_entry_node("oscillation_waves", "oscillation_waves"))
+builder.add_node("oscillation_waves", Assistant(oscillation_waves_runnable))
+builder.add_edge("enter_oscillation_waves", "oscillation_waves")
 builder.add_node(
-    "thermodynamics_tools",
+    "oscillation_waves_tools",
     create_tool_node_with_fallback(physics_tools),
 )
-def route_thermodynamics(state: GraphState) -> Literal["thermodynamics_tools","leave_skill","__end__"]:
+def route_oscillation_waves(state: GraphState) -> Literal["oscillation_waves_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1137,20 +974,20 @@ def route_thermodynamics(state: GraphState) -> Literal["thermodynamics_tools","l
     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
     if did_cancel:
         return "leave_skill"
-    return "thermodynamics_tools"
-builder.add_edge("thermodynamics_tools", "thermodynamics")
-builder.add_conditional_edges("thermodynamics", route_thermodynamics)
+    return "oscillation_waves_tools"
+builder.add_edge("oscillation_waves_tools", "oscillation_waves")
+builder.add_conditional_edges("oscillation_waves", route_oscillation_waves)
 
-# Fluid mechanics assistant
+# Lagrangian Mechanics assistant
 
-builder.add_node("enter_fluid_mechanics", create_entry_node("fluid mechanics", "fluid_mechanics"))
-builder.add_node("fluid_mechanics", Assistant(fluid_mechanics_runnable))
-builder.add_edge("enter_fluid_mechanics", "fluid_mechanics")
+builder.add_node("enter_lagrangian_mechanics", create_entry_node("lagrangian_mechanics", "lagrangian_mechanics"))
+builder.add_node("lagrangian_mechanics", Assistant(lagrangian_mechanics_runnable))
+builder.add_edge("enter_lagrangian_mechanics", "lagrangian_mechanics")
 builder.add_node(
-    "fluid_mechanics_tools",
+    "lagrangian_mechanics_tools",
     create_tool_node_with_fallback(physics_tools),
 )
-def route_fluid_mechanics(state: GraphState) -> Literal["fluid_mechanics_tools","leave_skill","__end__"]:
+def route_lagrangian(state: GraphState) -> Literal["lagrangian_mechanics_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1159,8 +996,8 @@ def route_fluid_mechanics(state: GraphState) -> Literal["fluid_mechanics_tools",
     if did_cancel:
         return "leave_skill"
     return "fluid_mechanics_tools"
-builder.add_edge("fluid_mechanics_tools", "fluid_mechanics")
-builder.add_conditional_edges("fluid_mechanics", route_fluid_mechanics)
+builder.add_edge("lagrangian_mechanics_tools", "lagrangian_mechanics")
+builder.add_conditional_edges("lagrangian_mechanics", route_lagrangian)
 
 # Gravitation assistant
 
@@ -1183,16 +1020,16 @@ def route_gravitation(state: GraphState) -> Literal["gravitation_tools","leave_s
 builder.add_edge("gravitation_tools", "gravitation")
 builder.add_conditional_edges("gravitation", route_gravitation)
 
-# Oscillations assistant
+# Hamiltonian Mechanics assistant
 
-builder.add_node("enter_oscillations", create_entry_node("oscillations", "oscillations"))
-builder.add_node("oscillations", Assistant(oscillations_runnable))
-builder.add_edge("enter_oscillations", "oscillations")
+builder.add_node("enter_hamiltonian", create_entry_node("hamiltonian", "hamiltonian"))
+builder.add_node("hamiltonian", Assistant(hamiltonian_runnable))
+builder.add_edge("enter_hamiltonian", "hamiltonian")
 builder.add_node(
-    "oscillations_tools",
+    "hamiltonian_tools",
     create_tool_node_with_fallback(physics_tools),
 )
-def route_oscillations(state: GraphState) -> Literal["oscillations_tools","leave_skill","__end__"]:
+def route_hamiltonian(state: GraphState) -> Literal["hamiltonian_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1200,20 +1037,20 @@ def route_oscillations(state: GraphState) -> Literal["oscillations_tools","leave
     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
     if did_cancel:
         return "leave_skill"
-    return "oscillations_tools"
-builder.add_edge("oscillations_tools", "oscillations")
-builder.add_conditional_edges("oscillations", route_oscillations)
+    return "hamiltonian_tools"
+builder.add_edge("hamiltonian_tools", "hamiltonian")
+builder.add_conditional_edges("hamiltonian", route_hamiltonian)
 
-# Work and energy assistant
+# Continuum Mechanics assistant
 
-builder.add_node("enter_work_and_energy", create_entry_node("work and energy", "work_and_energy"))
-builder.add_node("work_and_energy", Assistant(work_and_energy_runnable))
-builder.add_edge("enter_work_and_energy", "work_and_energy")
+builder.add_node("enter_continuum_mechanics", create_entry_node("continuum_mechanics", "continuum_mechanics"))
+builder.add_node("continuum_mechanics", Assistant(continuum_mechanics_runnable))
+builder.add_edge("enter_continuum_mechanics", "continuum_mechanics")
 builder.add_node(
-    "work_and_energy_tools",
+    "continuum_mechanics_tools",
     create_tool_node_with_fallback(physics_tools),
 )
-def route_work_and_energy(state: GraphState) -> Literal["work_and_energy_tools","leave_skill","__end__"]:
+def route_continuum_mechanics(state: GraphState) -> Literal["continuum_mechanics_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1221,9 +1058,9 @@ def route_work_and_energy(state: GraphState) -> Literal["work_and_energy_tools",
     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
     if did_cancel:
         return "leave_skill"
-    return "work_and_energy_tools"
-builder.add_edge("work_and_energy_tools", "work_and_energy")
-builder.add_conditional_edges("work_and_energy", route_work_and_energy)
+    return "continuum_mechanics_tools"
+builder.add_edge("continuum_mechanics_tools", "continuum_mechanics")
+builder.add_conditional_edges("continuum_mechanics", route_continuum_mechanics)
 
 # Dynamics assistant
 
@@ -1246,16 +1083,16 @@ def route_dynamics(state: GraphState) -> Literal["dynamics_tools","leave_skill",
 builder.add_edge("dynamics_tools", "dynamics")
 builder.add_conditional_edges("dynamics", route_dynamics)
 
-# Rotation and angular moment assistant
+# Kinematics assistant
 
-builder.add_node("enter_rotation_and_angular_moment", create_entry_node("rotation and angular moment", "rotation_and_angular_moment"))
-builder.add_node("rotation_and_angular_moment", Assistant(rotation_and_angular_moment_runnable))
-builder.add_edge("enter_rotation_and_angular_moment", "rotation_and_angular_moment")
+builder.add_node("enter_kinematics", create_entry_node("kinematics", "kinematics"))
+builder.add_node("kinematics", Assistant(kinematics_runnable))
+builder.add_edge("enter_kinematics", "kinematics")
 builder.add_node(
-    "rotation_and_angular_moment_tools",
+    "kinematics_tools",
     create_tool_node_with_fallback(physics_tools),
 )
-def route_rotation_and_angular_moment(state: GraphState) -> Literal["rotation_and_angular_moment_tools","leave_skill","__end__"]:
+def route_kinematics(state: GraphState) -> Literal["kinematics_tools","leave_skill","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1263,9 +1100,9 @@ def route_rotation_and_angular_moment(state: GraphState) -> Literal["rotation_an
     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
     if did_cancel:
         return "leave_skill"
-    return "rotation_and_angular_moment_tools"
-builder.add_edge("rotation_and_angular_moment_tools", "rotation_and_angular_moment")
-builder.add_conditional_edges("rotation_and_angular_moment", route_rotation_and_angular_moment)
+    return "kinematics_tools"
+builder.add_edge("kinematics_tools", "kinematics")
+builder.add_conditional_edges("kinematics", route_kinematics)
 
 
 def pop_dialog_state(state: GraphState) -> dict:
@@ -1308,24 +1145,24 @@ def route_manager(state: GraphState) -> Literal["manager_tools","enter_static","
     if tool_calls:
         if tool_calls[0]["name"] == Statics.__name__:
             return "enter_static"
-        elif tool_calls[0]["name"] == CinematicPhysics.__name__:
-            return "enter_cinematic"
-        elif tool_calls[0]["name"] == MovementCollisions.__name__:
-            return "enter_movement_collisions"
-        elif tool_calls[0]["name"] == Thermodynamics.__name__:
-            return "enter_thermodynamics"
-        elif tool_calls[0]["name"] == FluidMechanics.__name__:
-            return "enter_fluid_mechanics"
+        elif tool_calls[0]["name"] == Kinematics.__name__:
+            return "enter_kinematics"
+        elif tool_calls[0]["name"] == ConservationMomentum.__name__:
+            return "enter_conservation_momentum"
+        elif tool_calls[0]["name"] == ContinuumMechanics.__name__:
+            return "enter_continuum_mechanics"
+        elif tool_calls[0]["name"] == HamiltonianMechanics.__name__:
+            return "enter_hamiltonian"
         elif tool_calls[0]["name"] == Gravitation.__name__:
             return "enter_gravitation"
-        elif tool_calls[0]["name"] == Oscillations.__name__:
-            return "enter_oscillations"
-        elif tool_calls[0]["name"] == WorkEnergy.__name__:
-            return "enter_work_and_energy"
+        elif tool_calls[0]["name"] == OscillationsWaves.__name__:
+            return "enter_oscillation_waves"
+        elif tool_calls[0]["name"] == RigidBodyDinamics.__name__:
+            return "enter_rigid_body_dynamics"
         elif tool_calls[0]["name"] == Dynamics.__name__:
             return "enter_dynamics"
-        elif tool_calls[0]["name"] == RotationAngularMoment.__name__:
-            return "enter_rotation_and_angular_moment"
+        elif tool_calls[0]["name"] == LagrangianMechanics.__name__:
+            return "enter_lagrangian_mechanics"
 
         return "manager_tools"
     raise ValueError("Invalid Route")
