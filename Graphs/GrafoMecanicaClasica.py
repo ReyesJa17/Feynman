@@ -637,14 +637,6 @@ class CompleteOrEscalate(BaseModel):
         }
 
 
-class ClassicalMechanics(BaseModel):
-    """Transfers work to a specialized assistant to handle any classical mechanics questions."""
-
-    request: str = Field(
-        description="The user's request for the Feynman assistant to handle a physics-related question."
-        
-    )
-
 
 
 class Statics(BaseModel):
@@ -656,8 +648,8 @@ class Statics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "How to calculate distance?",
-                "request": "How to calculate distance?",
+                "problem": "Calculate the mean speed of the particles?",
+                "request": "Explain and calculate the mean speed of the particles.",
             }
         }
 
@@ -672,8 +664,8 @@ class Dynamics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "What is the conservation of energy?",
-                "request": "What is the conservation of energy?",
+                "problem": "A block of mass 10 kg is pushed along a frictionless surface for a distance of 5 meters by a force of 50 N. What is the work done on the block? What will be the block's velocity if it started from rest?",
+                "request": "Explain and calculate the work done on the block and the block's velocity.",
             }
         }
 
@@ -688,8 +680,8 @@ class ConservationMomentum(BaseModel):
     class Config:
         schema_extra = {
             "example": {                                                
-                "problem": "What is the classical mechanics?",
-                "request": "I want to ask a question about the classical mechanics.",                                                                       
+                "problem": "Two ice skaters, one of mass 60 kg and the other of mass 75 kg, push off each other on a frictionless ice surface. If the 60 kg skater moves away with a velocity of 2.5 m/s, what is the velocity of the 75 kg skater?",
+                "request": "Explain the concepts related to the conservation of momentum and calculate the velocity of the 75 kg skater.",                                                                       
             }
         }                                                                                           
 
@@ -704,8 +696,8 @@ class Gravitation(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "What is the special relativity?",
-                "request": "I want to ask a question about the special relativity.",
+                "problem": "What is the gravitational field strength at the surface of the Earth?",
+                "request": "Explain the concept of gravitational field strength",
             }
         }
 class OscillationsWaves(BaseModel):
@@ -719,8 +711,8 @@ class OscillationsWaves(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "what is the rotational motion?",
-                "request": "what is the rotational motion?",
+                "problem": "A pendulum with a length of 2 meters is released from a height of 0.5 meters above its lowest point. What is the maximum speed of the pendulum bob? Assume no energy is lost to friction or air resistance.",
+                "request": "Explain the concepts of simple harmonic motion and calculate the maximum speed of the pendulum bob.",
             }
         }
 
@@ -736,8 +728,8 @@ class RigidBodyDinamics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "How does the waves work?",
-                "request": "How does the waves work?",
+                "problem": "A uniform rod of length 2 meters and mass 5 kg is placed on a horizontal surface. Calculate the position of the center of mass of the rod. If a 3 kg mass is attached to one end of the rod, where is the new center of mass?",
+                "request": "Explain the concept of center of mass and calculate the position of the center of mass of the rod.",
             }
         }
 
@@ -753,8 +745,8 @@ class LagrangianMechanics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "How does the light work?",
-                "request": "How does the light work?",
+                "problem": "Derive the Lagrangian for a simple pendulum of length l and mass m. Use the Lagrangian to find the equation of motion for the pendulum.",
+                "request": "Explain the concept of Lagrangian mechanics on a pensulum and derive the Lagrangian for the simple pendulum.",
             }
         }
 
@@ -769,8 +761,8 @@ class HamiltonianMechanics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "What is the brownian motion?",
-                "request": "What is the brownian motion?",
+                "problem": "What is the Hamiltonian function, and how is it related to the total energy of a system?",
+                "request": "Explain the concept of Hamiltonian function and its relation to the total energy of a system.",
             }
         }
 
@@ -785,8 +777,8 @@ class ContinuumMechanics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "What is the heat engines?",
-                "request": "What is the heat engines?",
+                "problem": "How does the concept of material frame indifference (objectivity) affect the formulation of constitutive laws?",
+                "request": "Explain the concept of material frame indifference and its impact on the formulation of constitutive laws.",
             }
         }
 
@@ -801,8 +793,8 @@ class Kinematics(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "problem": "What is the kinematics?",
-                "request": "What is the kinematics?",
+                "problem": "What are the fundamental quantities in kinematics (displacement, velocity, acceleration), and how are they defined?",
+                "request": "Explain the fundamental quantities in kinematics and their definitions.",
             }
         }
 
@@ -824,7 +816,7 @@ manager_tools = [
 manager_runnable = prompt_manager | llm.bind_tools(
     manager_tools
     +[
-        ClassicalMechanics,
+
         Statics,
         Dynamics,
         ConservationMomentum,
@@ -1124,7 +1116,7 @@ builder.add_edge("leave_skill", "manager")
 builder.add_node("manager", Assistant(manager_runnable))
 builder.add_node("manager_tools", create_tool_node_with_fallback(manager_tools))
 
-def route_manager(state: GraphState) -> Literal["manager_tools","enter_static","enter_cinematic","enter_movement_collisions","enter_thermodynamics","enter_fluid_mechanics","enter_gravitation","enter_oscillations","enter_work_and_energy","enter_dynamics","enter_rotation_and_angular_moment", "__end__"]:
+def route_manager(state: GraphState) -> Literal["manager_tools","enter_static","enter_kinematics","enter_conservation_momentum","enter_rigid_body_dynamics","enter_lagrangian_mechanics","enter_gravitation","enter_oscillation_waves","enter_hamiltonian","enter_dynamics","enter_continuum_mechanics","__end__"]:
     route = tools_condition(state)
     if route == END:
         return END
@@ -1160,15 +1152,15 @@ builder.add_conditional_edges(
     route_manager,
     {
         "enter_static": "enter_static",
-        "enter_cinematic": "enter_cinematic",
-        "enter_movement_collisions": "enter_movement_collisions",
-        "enter_thermodynamics": "enter_thermodynamics",
-        "enter_fluid_mechanics": "enter_fluid_mechanics",
+        "enter_kinematics": "enter_kinematics",
+        "enter_conservation_momentum": "enter_conservation_momentum",
+        "enter_continuum_mechanics": "enter_continuum_mechanics",
+        "enter_hamiltonian": "enter_hamiltonian",
         "enter_gravitation": "enter_gravitation",
-        "enter_oscillations": "enter_oscillations",
-        "enter_work_and_energy": "enter_work_and_energy",
+        "enter_oscillation_waves": "enter_oscillation_waves",
+        "enter_rigid_body_dynamics": "enter_rigid_body_dynamics",
         "enter_dynamics": "enter_dynamics",
-        "enter_rotation_and_angular_moment": "enter_rotation_and_angular_moment",
+        "enter_lagrangian_mechanics": "enter_lagrangian_mechanics",
         "manager_tools": "manager_tools",
         END: END,
     },
@@ -1176,7 +1168,7 @@ builder.add_conditional_edges(
 builder.add_edge("manager_tools", "manager")
 
 
-def route_workflow(state: GraphState) -> Literal["manager","static","cinematic","movement_collisions","thermodynamics","fluid_mechanics","gravitation","oscillations","work_and_energy","dynamics","rotation_and_angular_moment" ]:
+def route_workflow(state: GraphState) -> Literal["manager","static","kinematic","conservation_momentum","rigid_body_dynamics","lagrangian_mechanics","gravitation","oscillations_waves","hamiltonian","dynamics","continuum_mechanics"]: 
     """If we are in a delegated state, route directly to the appropriate assistant."""
     dialog_state = state.get("dialog_state")
     if not dialog_state:

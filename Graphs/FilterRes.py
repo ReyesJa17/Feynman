@@ -15,13 +15,9 @@ from typing import Dict, TypedDict
 from typing import List
 import os
 from langgraph.checkpoint.sqlite import SqliteSaver
-
-
 from langchain.prompts import ChatPromptTemplate
-
-from raptor_feynman import answer_raptor
 from ResMultiBDV import get_multiple_answer 
-from ResMultiWolfram import get_multiple_answer_wolfram
+
 
 
 ### Set the API keys
@@ -48,9 +44,6 @@ llm = ChatGroq(
 
 
 ###Prompt templates
-
-
-
 
 
 #Unite final answer

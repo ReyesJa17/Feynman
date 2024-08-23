@@ -52,16 +52,30 @@ llm = ChatGroq(
 
 #Prompt Multiquery 
 
+prompt_steps_solve = PromptTemplate(
+    template=
+    """
+    Your job is to generate a series of steps to solve a physics problem. \n
+    The problem is: {question} \n
+    Just provide the steps, do not solve the problem. \n
+    """,
+    input_variables=["question"],
+)
+
 prompt_multiquery_teoric_decomposition = PromptTemplate(
     template=
     """
-    You are a helpful assistant that generates multiple sub-questions related to an input question. \n
-    The goal is to break down the input into a set of sub-questions that are related to the main question, this sub questions can include concepts, definitions, examples to help the user understand the main question. \n
+    You are a helpful assistant that generates multiple sub-questions related to an input question and steps to solve a problem. \n
+    The goal is to break down the input into a set of sub-questions that are related to the main question, this sub questions must be conceptually related to the main question. \n
     Dont answer the question, just generate the sub-questions. \n
-    Generate multiple search queries related to: {question} \n
-    Provide a JSON list with 3 sub-questions as strings. \n
+    Generate multiple search queries related to: \m
+    Question: \n
+    {question} \n
+    Steps to solve the problem: \n
+    {steps}\n
+    Provide a JSON list with at least 2 different sub-questions as strings. \n
     """,
-    input_variables=["question"],
+    input_variables=["question", "steps"],
 )
 
 ### Question Re-writer
@@ -69,21 +83,9 @@ re_write_prompt = PromptTemplate(
     template="""You a question re-writer that converts an input question to a better version that is optimized \n 
      for vectorstore retrieval. Look at the initial and formulate an improved question. \n
      Here is the initial question: \n\n {question}. Improved question with no preamble: \n """,
-    input_variables=["generation", "question"],
-)
-#Router
-prompt_router = PromptTemplate(
-    template="""You are an expert at routing a user question to a vectorstore of Feynman lectures,query_wolframalpha or websearch. \n
-    Use the vectorstore for questions about any theory question related to physics. \n
-    You do not need to be stringent with the keywords in the question related to these topics. \n
-    Always use wolframalpha for questions that require mathematical calculations, date and unit conversions, formula solving, etc. \n
-    Just use the vectorstore for any question that does not require mathematical calculations. \n
-    Otherwise, use web-search.
-    Give a binary choice 'query_wolframalpha', 'web_search' or 'vectorstore' based on the question. \n
-    Return the a JSON with a single key 'datasource' and no premable or explanation. \n
-    Question to route: {question}""",
     input_variables=["question"],
 )
+
 
 ### Retrieval Grader
 prompt_retrival = PromptTemplate(
@@ -167,13 +169,11 @@ prompt_recursive_answer = PromptTemplate(
 
 
 
-
+generate_steps_to_solve = prompt_steps_solve | llm | StrOutputParser()
 
 generate_queries_decomposition =  prompt_multiquery_teoric_decomposition | llm | JsonOutputParser()
 
 question_rewriter = re_write_prompt | llm | StrOutputParser()
-
-question_router = prompt_router | llm | JsonOutputParser()
 
 retrieval_grader = prompt_retrival | llm | JsonOutputParser()
 
@@ -459,10 +459,6 @@ config = {
 
 
 
-
-
-
-
 # Recursive RAG chain
 
 
@@ -500,11 +496,8 @@ def get_multiple_answer(question: str):
     
 
     q_a_pairs = ""
-    answer_context = run_workflow({"question": question})
-    questions = generate_queries_decomposition.invoke({"question": answer_context})
-    answer = rag_chain_recursive.invoke({"question":question,"q_a_pairs":q_a_pairs,"context":answer_context})
-    q_a_pair = format_qa_pair(question,answer_context)
-    q_a_pairs = q_a_pairs + "\n---\n"+  q_a_pair
+    steps_to_solve = generate_steps_to_solve.invoke({"question": question})
+    questions = generate_queries_decomposition.invoke({"question": answer_context, "steps": steps_to_solve})
     for q in questions:
         print(q)
         answer_context = run_workflow({"question": q})
