@@ -3,11 +3,17 @@ import json
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+import os
+
+os.environ["URI_NEO4J"] 
+os.environ["USER_NEO4J"]
+os.environ["PASSWORD_NEO4J"]
+
 
 # Replace these values with your actual Neo4j cloud connection details
-uri = "neo4j+s://396fd47c.databases.neo4j.io:7687"
-user = "neo4j"
-password = "pFRVqTdXDklDwf0iD2SLcx-z6LPiqoEpt92DouTGwQU"
+uri = os.environ["URI_NEO4J"]
+user = os.environ["USER_NEO4J"]
+password = os.environ["PASSWORD_NEO4J"]
 
 # Create the driver and establish a session
 driver = GraphDatabase.driver(uri, auth=(user, password))
