@@ -17,6 +17,8 @@ import os
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain.prompts import ChatPromptTemplate
 from ResMultiBDV import get_multiple_answer 
+from ResMultiBDG import get_decision_contain, get_formulas_from_equality_relationships
+from Calculator import solve_physics_equation_with_latex
 
 
 
@@ -48,38 +50,40 @@ llm = ChatGroq(
 
 #Unite final answer
 
-prompt_unite_final_answer = PromptTemplate(
+prompt_steps = PromptTemplate(
     template=
     """
     You are a helpful teacher that is trying to help a student solve a physics problem. \n
-    Your job is to analyze all the information provided and return a final answer that also explains the solution. \n
-    Leave any extras that might help the user understand the problem like examples or applications. \n
+    Your job is to analyze all the information provided and return a set of steps to solve the problem. \n
     All details are important in order for the student to understand the problem. \n
-    Return a JSON key "final_answer" with the final answer. \n
+    Dont solve the problem, just provide the steps. \n
+    Return a list under the JSON key "steps" with the steps to solve the problem. \n
     Here is the problem: \n
     {problem} \n
-    The information at your disposal to answer is: \n
-    Vector data base information: {vector_data_base_answer} \n
+    The information at your disposal to make the steps is: \n
+    {vector_data_base_answer} \n
     """,
    inputs=["problem" , "vector_data_base_answer"],
 )
 
 
-prompt_solve_physics_problem = ChatPromptTemplate(
+prompt_solve_physics_problem = PromptTemplate(
     template=
     """
-    You are a helpful teacher that is trying to help a student solve a physics problem. \n
-    Your job is to analyze all the information provided and return a final answer. \n
-    Leave any extras that might help the user understand the problem like examples or applications. \n
+    You are a helpful teacher that is trying to help a student understand a physics problem. \n
+    Your job is to analyze all the information provided and explain the problem solution, the steps, the formula used, important concept referenced on the problem and the solution. \n
+    Add any extras that might help the user understand the problem like examples or applications. \n
     Return a JSON key "final_answer" with the final answer. \n
     Here is the problem: \n
     {problem} \n
     Vector data base information: {vector_data_base_answer} \n
+    Here is the answer to the problem: \n
+    {answer} \n
     """,
-   inputs=["problem" ,  "vector_data_base_answer"],
+   inputs=["problem" ,  "vector_data_base_answer", "answer"],
 )
 
-prompt_translate_problem = ChatPromptTemplate(
+prompt_translate_problem = PromptTemplate(
     template=
     """
     You are a helpful translator\n
@@ -91,16 +95,52 @@ prompt_translate_problem = ChatPromptTemplate(
    inputs=["final_answer" ],
 )
 
+prompt_get_formula = PromptTemplate(
+    template=
+    """
+    Your task is to analyze the query input and with that and the steps to solve the problem you must return the formula used on the specific step. \n
+    Return a JSON key "formula" with the formula and a JSON key "desired_variable" with the desired variable to solve. \n
+    Use the previous steps and their solutions as reference to get the formula of the current step. \n
+    Do not include any preamble or explanation, just return the JSON. \n
+    Here is the query: \n
+    {query} \n
+    Here is the previous steps: \n
+    {previous_steps} \n
+    Here is the current step: \n
+    {step} \n
+    Here are the possible formulas: \n
+    {formulas} \n
 
+    """,
+   inputs=["query", "step", "previous_steps", "formulas"],
+)
 
+prompt_sustitute_formula = PromptTemplate(
+    template=
+    """
+    Your task is to analyze the query input and the desired formula to use and return the variables  with their values to substitute in the formula. \n
+    Return all the variables separated by a comma. \n
+    Use LaTeX format to represent the variables and values\n
+    Return a JSON with the key variables and inside a string of known variables and their values in LaTeX format, separated by commas.\n
+    Do not include any preamble or explanation, just return the JSON. \n
+    Here is the query: \n
+    {query} \n
+    Here is the current step: \n
+    {step} \n
+    Here is the desired formula: \n
+    {formula} \n
+
+    """,
+   inputs=["query", "step"],
+)
 
 #Chains
 
+chain_sustitute_formula = prompt_sustitute_formula | llm | JsonOutputParser()
 
+chain_get_formula = prompt_get_formula | llm | JsonOutputParser()
 
-
-
-chain_unite_final_answer = prompt_unite_final_answer | llm | JsonOutputParser()
+chain_steps = prompt_steps | llm | JsonOutputParser()
 
 chain_solve_physics_problem = prompt_solve_physics_problem | llm | JsonOutputParser()
 
@@ -113,8 +153,8 @@ class GraphState(TypedDict):
     problem: str
 
 
-    steps_to_solve: str
-
+    steps_to_solve: List[str]
+    formula: List[str]
     vector_data_base_answer: str
     final_answer: str
     translate: str
@@ -139,12 +179,34 @@ def solve_physics_problem(state):
     """
 
     problem = state["problem"]
-    final_answer = chain_solve_physics_problem.invoke({"problem": problem, "vector_data_base_answer": state["vector_data_base_answer"]})
+    vector_data_base_answer = state["vector_data_base_answer"]
+    steps_to_solve = state["steps_to_solve"]
+    formulas = state["formula"]
+    i = 0
+    current_answer = ""
+    for step in steps_to_solve:
+        query = problem
+        if i==0:
+            step_answer = chain_get_formula.invoke({"query": query, "step": step, "previous_steps": "none", "formulas": formulas})
+            i+=1
+        else:
+            step_answer = chain_get_formula.invoke({"query": query, "step": step, "previous_steps": current_answer, "formulas": formulas})
+            i=i+1
+        print(step_answer)
+        formula = step_answer["formula"]
+        desired_variable = step_answer["desired_variable"]
+        variables = chain_sustitute_formula.invoke({"query": query, "step": step, "formula": formula})
+        print(variables["variables"])
+        answer = solve_physics_equation_with_latex(formula, desired_variable, variables["variables"])
+        current_answer = current_answer + "The step solution number: "+ str(i) + "\n" + "Answer to solve the step: " + str(answer)
+    print(current_answer)
+
+    final_answer = chain_solve_physics_problem.invoke({"problem": problem, "vector_data_base_answer": vector_data_base_answer, "answer": current_answer})
     print(final_answer)
     return {"final_answer": final_answer["final_answer"]}
 
 
-def unite_final_answer(state):
+def get_steps(state):
     """
     Analyze all the information provided and return a final answer that not only solves the problem but also explains the solution.
 
@@ -157,10 +219,17 @@ def unite_final_answer(state):
     """
 
     problem = state["problem"]
-    vector_data_base_answer = get_multiple_answer(problem)
-    final_answer = chain_unite_final_answer.invoke({"problem": problem,  "vector_data_base_answer": vector_data_base_answer})
-    print(final_answer)
-    return {"final_answer": final_answer["final_answer"]}
+    concept,concepts = get_decision_contain(problem)
+    print(concept)
+    print(concepts)
+    vector_data_base_answer = get_multiple_answer(problem, concepts)
+    formula = get_formulas_from_equality_relationships(concept)
+    steps = chain_steps.invoke({"problem": problem,  "vector_data_base_answer": vector_data_base_answer, "formula": formula})
+    steps_list = steps["steps"]
+    print(steps_list)
+    print(formula)
+    print(vector_data_base_answer)
+    return {"steps_to_solve": steps_list, "vector_data_base_answer": vector_data_base_answer,"formula": formula}
 
 
 def translate(state):
@@ -187,21 +256,20 @@ workflow_filter = StateGraph(GraphState)
 
 
 
-workflow_filter.add_node("vector_database_answer", unite_final_answer)
+workflow_filter.add_node("vector_database_answer", get_steps)
 
 
 workflow_filter.add_node("solve_physics_problem",solve_physics_problem)
 
-workflow_filter.add_node("translate_problem", translate)
 
 
 workflow_filter.set_entry_point("vector_database_answer")
 
 workflow_filter.add_edge("vector_database_answer",  "solve_physics_problem")
 
-workflow_filter.add_edge("solve_physics_problem", "translate_problem")
+workflow_filter.add_edge("solve_physics_problem", END)
 
-workflow_filter.add_edge("translate", END)
+
 
 
 
@@ -251,3 +319,5 @@ def run_workflow_filter(inputs):
     return value["translate"]
 
 
+res = run_workflow_filter({"problem": "A car travels 100 meters in 5 seconds. What is the speed of the car?", "vector_data_base_answer": "none", "formula": "none"})
+print(res)

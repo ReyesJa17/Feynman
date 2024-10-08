@@ -35,9 +35,9 @@ def _set_env(var: str):
         os.environ[var] = getpass.getpass(f"{var}: ")
 local_llm = "gemma2:27b-instruct-q6_K"
 model = local_llm
-llm = ChatOllama(model=local_llm, temperature=0)
+#llm = ChatOllama(model=local_llm, temperature=0)
 
-#llm = ChatGroq( model="llama3-70b-8192",temperature=0)
+llm = ChatGroq( model="llama3-70b-8192",temperature=0)
 
 
 
@@ -96,7 +96,3 @@ def answer_raptor(question: str) -> str:
 
 
 
-
-
-res = answer_raptor("What is the definition of a vector?")
-print(res)

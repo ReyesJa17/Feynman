@@ -52,36 +52,32 @@ llm = ChatGroq(
 
 #Prompt Multiquery 
 
-prompt_steps_solve = PromptTemplate(
-    template=
-    """
-    Your job is to generate a series of steps to solve a physics problem. \n
-    The problem is: {question} \n
-    Just provide the steps, do not solve the problem. \n
-    """,
-    input_variables=["question"],
-)
+
 
 prompt_multiquery_teoric_decomposition = PromptTemplate(
     template=
     """
-    You are a helpful assistant that generates multiple sub-questions related to an input question and steps to solve a problem. \n
+    You are a helpful assistant that generates multiple sub-questions related to an input question and a list of related concepts. \n
     The goal is to break down the input into a set of sub-questions that are related to the main question, this sub questions must be conceptually related to the main question. \n
+    Onky make physics concepts related questions that can be retrived from the feynman book. \n
+    Dont make any formula related questions. \n
+    Dont make more than 3 questions. \n
     Dont answer the question, just generate the sub-questions. \n
     Generate multiple search queries related to: \m
     Question: \n
     {question} \n
-    Steps to solve the problem: \n
-    {steps}\n
-    Provide a JSON list with at least 2 different sub-questions as strings. \n
+    Related Concepts: \n
+    {concepts}\n
+    Provide a JSON with no key with a list with at least 2 different sub-questions as strings. \n
     """,
-    input_variables=["question", "steps"],
+    input_variables=["question", "concepts"],
 )
 
 ### Question Re-writer
 re_write_prompt = PromptTemplate(
     template="""You a question re-writer that converts an input question to a better version that is optimized \n 
      for vectorstore retrieval. Look at the initial and formulate an improved question. \n
+     When rewriting the question try just to include physic concepts in general to better retrive from the feynman book. \n
      Here is the initial question: \n\n {question}. Improved question with no preamble: \n """,
     input_variables=["question"],
 )
@@ -117,7 +113,7 @@ prompt_hallucination = PromptTemplate(
 ### Answer Grader
 
 prompt_grader = PromptTemplate(
-    template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
+    template="""You are a grader assessing whether the answer has any physics related concepts that help to better learn the related topics to the question. \n 
     Here is the answer:
     \n ------- \n
     {generation} 
@@ -136,9 +132,10 @@ prompt_generate = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise."
+            "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to provide the best answer of any concept related question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise."
+            "Dont make any math, just return any relevant related concepts"
             "Question: {question} "
-           " Context: {context} "
+            "Context: {context} "
             "Answer:"
             "\nCurrent time: {time}.",
         ),
@@ -163,13 +160,28 @@ prompt_recursive_answer = PromptTemplate(
     \n --- \n {context} \n --- \n
 
     Use the above context and any background question + answer pairs to answer the question: \n {question}
+    Never include math solutions on the answer, just return any relevant related concepts needed to solve the problem. \n
     """,
     input_variables=["question", "q_a_pairs", "context"],
 )
 
 
+prompt_filter_concepts = PromptTemplate(
+    template=
+    """
+    Your job is to analyze the retrived relevant information and filter any important physics related concepts to the question. \n
+    Never include any formula or math solutions, just return any relevant theoric related concepts needed to solve the problem. \n
+    Here is the question: \n
+    {question} \n
+    Here is the relevant information: \n
+    {context} \n
+    """,
+    input_variables=["question", "context"],
+)
 
-generate_steps_to_solve = prompt_steps_solve | llm | StrOutputParser()
+#Chains
+
+chain_filter_concepts = prompt_filter_concepts | llm | StrOutputParser()
 
 generate_queries_decomposition =  prompt_multiquery_teoric_decomposition | llm | JsonOutputParser()
 
@@ -229,7 +241,7 @@ def retrieve(state):
     """
     print("---RETRIEVE---")
     question = state["question"]
-
+    print(question)
     # Retrieval
     documents = answer_raptor(question)
     return {"documents": documents, "question": question}
@@ -307,8 +319,6 @@ def transform_query(state):
 
 
 
-
-### Edges ###
 
 
 ### Edges ###
@@ -485,26 +495,21 @@ def run_workflow(inputs):
     return value["generation"]
 
   
-def get_multiple_answer(question: str):
+def get_multiple_answer(question: str, concepts: str):
     """
     Divides the question into multiple sub-questions and generates answers for each.
 
     Args:
         question (str): The input question
     """
-
-    
-
-    q_a_pairs = ""
-    steps_to_solve = generate_steps_to_solve.invoke({"question": question})
-    questions = generate_queries_decomposition.invoke({"question": answer_context, "steps": steps_to_solve})
+    answer = ""
+    questions = generate_queries_decomposition.invoke({"question": question, "concepts": concepts})
+    print(questions)
     for q in questions:
         print(q)
         answer_context = run_workflow({"question": q})
-        answer = rag_chain_recursive.invoke({"question":question,"q_a_pairs":q_a_pairs,"context":answer_context})
-        q_a_pair = format_qa_pair(q,answer_context)
-        q_a_pairs = q_a_pairs + "\n---\n"+  q_a_pair
+        answer += f"Question: {q}\nAnswer: {answer_context}\n\n"
         print(answer)
-    
-    return answer
+    final_answer = chain_filter_concepts.invoke({"question": question, "context": answer})
+    return final_answer
 

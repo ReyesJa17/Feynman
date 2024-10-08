@@ -1,0 +1,125 @@
+{
+    "Thermodynamics": {
+      "Classical Thermodynamics": {
+        "Introduction and Basic Concepts": {
+          "Thermodynamics and Energy": {},
+          "Importance of Dimensions and Units": {},
+          "Systems and Control Volumes": {},
+          "Properties of a System": {},
+          "Density and Specific Gravity": {},
+          "State and Equilibrium": {},
+          "Processes and Cycles": {},
+          "Temperature and the Zeroth Law of Thermodynamics": {},
+          "Pressure": {},
+          "The Manometer": {},
+          "The Barometer and Atmospheric Pressure": {},
+          "Problem-Solving Technique": {}
+        },
+        "Energy Conversion and General Energy Analysis": {
+          "Introduction": {},
+          "Forms of Energy": {},
+          "Energy Transfer by Heat": {},
+          "Energy Transfer by Work": {},
+          "Mechanical Forms of Work": {},
+          "The First Law of Thermodynamics": {},
+          "Energy Conversion Efficiencies": {},
+          "Energy and Environment": {},
+          "Mechanisms of Heat Transfer": {}
+        },
+        "Properties of Pure Substances": {
+          "Pure Substance": {},
+          "Phases of a Pure Substance": {},
+          "Phase-Change Processes of Pure Substances": {},
+          "Property Diagrams for Phase-Change Processes": {},
+          "Property Tables": {},
+          "The Ideal-Gas Equation of State": {},
+          "Compressibility Factor": {},
+          "Other Equations of State": {}
+        },
+        "Energy Analysis of Closed Systems": {
+          "Moving Boundary Work": {},
+          "Energy Balance for Closed Systems": {},
+          "Specific Heats": {},
+          "Internal Energy, Enthalpy, and Specific Heats of Ideal Gases": {},
+          "Internal Energy, Enthalpy, and Specific Heat of Solids and Liquids": {}
+        },
+        "Mass and Energy Analysis of Control Volumes": {
+          "Conservation of Mass": {},
+          "Flow Work and the Energy of a Flowing Fluid": {},
+          "Energy Analysis of Steady-Flow Systems": {},
+          "Some Steady-Flow Engineering Devices": {},
+          "Energy Analysis of Unsteady-Flow Processes": {}
+        },
+        "The Second Law of Thermodynamics": {
+          "Introduction to the Second Law": {},
+          "Thermal Energy Reservoirs": {},
+          "Heat Engines": {},
+          "Refrigerators and Heat Pumps": {},
+          "Perpetual-Motion Machines": {},
+          "Reversible and Irreversible Processes": {},
+          "The Carnot Cycle": {},
+          "The Carnot Principles": {},
+          "The Thermodynamic Temperature Scale": {},
+          "The Carnot Refrigerator and Heat Pump": {}
+        },
+        "Entropy": {
+          "Entropy": {},
+          "The Increase of Entropy Principle": {},
+          "Entropy Change of Pure Substances": {},
+          "Isentropic Processes": {},
+          "Property Diagrams Involving Entropy": {},
+          "The T ds Relations": {},
+          "Entropy Change of Liquids and Solids": {},
+          "The Entropy Change of Ideal Gases": {},
+          "Reversible Steady-Flow Work": {},
+          "Minimizing the Compressor Work": {},
+          "Isentropic Efficiencies of Steady-Flow Devices": {},
+          "Entropy Balance": {}
+        },
+        "Exergy: A Measure of Work Potential": {
+          "Exergy": {},
+          "Reversible Work and Irreversibility": {},
+          "Second-Law Efficiency": {},
+          "Exergy Change of a System": {},
+          "Exergy Transfer by Heat, Work, and Mass": {},
+          "The Decrease of Exergy Principle and Exergy Destruction": {},
+          "Exergy Balance: Closed Systems": {},
+          "Exergy Balance: Control Volumes": {}
+        },
+        "Gas Power Cycles": {
+          "Basic Considerations in the Analysis of Power Cycles": {},
+          "The Carnot Cycle and Its Value in Engineering": {},
+          "Air-Standard Assumptions": {},
+          "Otto Cycle": {},
+          "Diesel Cycle": {},
+          "Brayton Cycle": {},
+          "The Brayton Cycle with Regeneration": {},
+          "The Brayton Cycle with Intercooling, Reheating, and Regeneration": {},
+          "Ideal Jet-Propulsion Cycles": {},
+          "Second-Law Analysis of Gas Power Cycles": {}
+        },
+        "Vapor and Combined Power Cycles": {
+          "The Carnot Vapor Cycle": {},
+          "Rankine Cycle": {},
+          "Deviation of Actual Vapor Power Cycles from Idealized Ones": {},
+          "The Ideal Reheat Rankine Cycle": {},
+          "The Ideal Regenerative Rankine Cycle": {},
+          "Second-Law Analysis of Vapor Power Cycles": {},
+          "Cogeneration": {},
+          "Combined Gas–Vapor Power Cycles": {}
+        },
+        "Refrigeration Cycles": {
+          "Refrigerators and Heat Pumps": {},
+          "The Reversed Carnot Cycle": {},
+          "The Ideal Vapor-Compression Refrigeration Cycle": {},
+          "Actual Vapor-Compression Refrigeration Cycle": {},
+          "Selecting the Right Refrigerant": {},
+          "Heat Pump Systems": {},
+          "Innovative Vapor-Compression Refrigeration Systems": {},
+          "Gas Refrigeration Cycles": {},
+          "Absorption Refrigeration Systems": {}
+        }
+      }
+    }
+  }
+  
