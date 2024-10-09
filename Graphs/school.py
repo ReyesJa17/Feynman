@@ -1,6 +1,6 @@
 
 import streamlit as st
-from Graphs.FilterRes import run_workflow_filter
+from FilterRes import run_workflow_filter
 
 
 
