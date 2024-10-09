@@ -27,7 +27,7 @@ os.environ['GROQ_API_KEY']
 os.environ['LANGCHAIN_API_KEY'] 
 os.environ["LANGCHAIN_TRACING_V2"] 
 os.environ["LANGCHAIN_PROJECT"] 
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] 
 
 
 
