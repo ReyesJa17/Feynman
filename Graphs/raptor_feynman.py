@@ -22,6 +22,8 @@ load_dotenv()
 
 
 os.environ['GROQ_API_KEY'] 
+os.environ['OPENAI_API_KEY'] 
+
 api_key = os.environ['OPENAI_API_KEY'] 
 pinecone_api_key = os.environ['PINECONE_API_KEY']
 
