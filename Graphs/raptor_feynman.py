@@ -22,7 +22,7 @@ load_dotenv()
 
 
 os.environ['GROQ_API_KEY'] 
-os.environ['OPENAI_API_KEY'] 
+api_key = os.environ['OPENAI_API_KEY'] 
 pinecone_api_key = os.environ['PINECONE_API_KEY']
 
 pc = Pinecone(api_key=pinecone_api_key)
@@ -41,7 +41,7 @@ CHROMA_DIR = "feynman_storage"
 
 
 
-embeddings_pinecone = OpenAIEmbeddings(model="text-embedding-3-large",dimensions=768)
+embeddings_pinecone = OpenAIEmbeddings(model="text-embedding-3-large",dimensions=768,api_key=api_key)
 
 vector_store = PineconeVectorStore(index=index, embedding=embeddings_pinecone)
 

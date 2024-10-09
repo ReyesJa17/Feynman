@@ -29,7 +29,7 @@ os.environ['LANGCHAIN_API_KEY']
 os.environ["LANGCHAIN_TRACING_V2"] 
 os.environ["LANGCHAIN_PROJECT"] 
 
-os.environ["OPENAI_API_KEY"]
+api_key = os.environ["OPENAI_API_KEY"]
 
 
 
@@ -43,6 +43,7 @@ local_llm = "llama3:70b"
 llm = ChatGroq(
             model="llama-3.1-70b-versatile",
             temperature=0,
+            api_key=api_key,
         )
 
 
