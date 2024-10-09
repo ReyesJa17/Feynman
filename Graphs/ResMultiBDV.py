@@ -16,7 +16,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 import os
 from langchain.prompts import ChatPromptTemplate
 from datetime import datetime
-from raptor_feynman import answer_raptor
+from raptor_feynman import answer_raptor_pinecone
 
 
 
@@ -243,7 +243,7 @@ def retrieve(state):
     question = state["question"]
     print(question)
     # Retrieval
-    documents = answer_raptor(question)
+    documents = answer_raptor_pinecone(question)
     return {"documents": documents, "question": question}
 
 

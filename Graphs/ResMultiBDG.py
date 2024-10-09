@@ -172,6 +172,6 @@ def get_decision_contain(query):
 def get_formulas(contain):
 
     formulas = get_formulas_from_equality_relationships(contain)
-    #driver.close()
+    #driver.close(
     return formulas
 

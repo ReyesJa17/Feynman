@@ -23,6 +23,101 @@ def extract_and_solve(equation, target_variable):
     return solution[0]
 
 
+def clean_latex(equation_latex):
+    """
+    Cleans the LaTeX string by removing unnecessary delimiters like \\( and \\).
+    """
+    # Remove LaTeX math delimiters (\\( and \\))
+    return equation_latex.replace('\\(', '').replace('\\)', '')
+
+def solve_physics_equation_with_latex_list(equation_latex, target_variable_latex, variables_list):
+    """
+    Solves a physics equation given in LaTeX format for a target variable, with known variables provided as a list of strings.
+
+    Parameters:
+    - equation_latex: The equation as a LaTeX string, e.g., r'F = m \times a'
+    - target_variable_latex: The target variable as a LaTeX string, e.g., r'a'
+    - variables_list: A list of known variables and their values in string format, e.g., ['F=10', 'm=2'].
+
+    Returns:
+    - The solution for the target variable.
+    """
+
+    # Clean the LaTeX equation and target variable
+    equation_latex = clean_latex(equation_latex)
+    target_variable_latex = clean_latex(target_variable_latex)
+
+    # Parse the target variable from LaTeX to SymPy
+    try:
+        target_var_sympy = parse_latex(target_variable_latex)
+    except Exception as e:
+        print(f"Error parsing target variable LaTeX '{target_variable_latex}': {e}")
+        return None
+
+    # Create a dictionary to hold variable names and values
+    known_values = {}
+
+    # Process each variable in the list
+    for var in variables_list:
+        var = var.strip()
+        if '=' in var:
+            name, value = var.split('=')
+            name = name.strip()
+            value = value.strip()
+
+            # Parse the variable name and value from LaTeX to SymPy
+            try:
+                name_sympy = parse_latex(name)
+            except Exception as e:
+                print(f"Error parsing variable name LaTeX '{name}': {e}")
+                continue
+
+            try:
+                # Try converting value to float, otherwise use SymPy parsing
+                value_numeric = float(value)
+                known_values[name_sympy] = value_numeric
+            except ValueError:
+                try:
+                    # Parse complex LaTeX values like pi, fractions, etc.
+                    value_sympy = parse_latex(value)
+                    known_values[name_sympy] = value_sympy
+                except Exception as e:
+                    print(f"Error parsing variable value LaTeX '{value}': {e}")
+                    continue
+
+    # Parse the equation from LaTeX to SymPy
+    try:
+        equation_latex_clean = clean_latex(equation_latex)
+        if '=' in equation_latex_clean:
+            lhs_latex, rhs_latex = equation_latex_clean.split('=')
+            lhs_sympy = parse_latex(lhs_latex.strip())
+            rhs_sympy = parse_latex(rhs_latex.strip())
+            equation_sympy = Eq(lhs_sympy, rhs_sympy)
+        else:
+            print("Equation does not contain an equality sign.")
+            return None
+    except Exception as e:
+        print(f"Error parsing equation LaTeX '{equation_latex}': {e}")
+        return None
+
+    # Substitute known values into the equation
+    equation_substituted = equation_sympy.subs(known_values)
+
+    # Solve for the target variable
+    try:
+        solution = solve(equation_substituted, target_var_sympy)
+    except Exception as e:
+        print(f"Error solving the equation: {e}")
+        return None
+
+    if not solution:
+        print("No solution found.")
+        return None
+
+    # Return the first solution
+    return solution[0]
+
+
 def solve_physics_equation_with_latex(equation_latex, target_variable_latex, variables_latex):
     """
     Solves a physics equation given in LaTeX format for a target variable, with known variables also in LaTeX format.
