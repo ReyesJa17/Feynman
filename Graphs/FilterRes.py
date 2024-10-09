@@ -20,7 +20,8 @@ from ResMultiBDV import get_multiple_answer
 from ResMultiBDG import get_decision_contain, get_formulas_from_equality_relationships
 from Calculator import solve_physics_equation_with_latex, solve_physics_equation_with_latex_list
 from langchain_openai import ChatOpenAI
-
+from dotenv import load_dotenv
+load_dotenv() 
 
 ### Set the API keys
 os.environ['GROQ_API_KEY'] 
@@ -28,7 +29,7 @@ os.environ['LANGCHAIN_API_KEY']
 os.environ["LANGCHAIN_TRACING_V2"] 
 os.environ["LANGCHAIN_PROJECT"] 
 
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"]
 
 
 
