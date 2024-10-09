@@ -32,10 +32,7 @@ os.environ["LANGCHAIN_PROJECT"]
 
 ###Choose LLM model and provider
 
-# Ollama model name
-local_llm = "llama3.1"
 
-llm_json = ChatOllama(model=local_llm, temperature=0)
 
 llm = ChatGroq(
             model="llama-3.1-70b-versatile",

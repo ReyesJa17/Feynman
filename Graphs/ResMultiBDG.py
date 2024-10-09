@@ -24,7 +24,7 @@ def test_connection():
         for record in greeting:
             print(record["message"])
 
-
+test_connection()
 
 #LLM setup
 

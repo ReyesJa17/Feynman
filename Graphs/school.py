@@ -1,6 +1,6 @@
 
 import streamlit as st
-from FilterRes import run_workflow_filter
+from main import get_response
 
 
 
@@ -18,7 +18,7 @@ def add_logo(logo_path, width, height):
     modified_logo = logo.resize((width, height))
     return modified_logo
 
-my_logo = add_logo(logo_path="logo.png", width=170, height=170)
+my_logo = add_logo(logo_path="Graphs/logo.png", width=170, height=170)
 
 
 
@@ -59,7 +59,7 @@ def on_chat_submit(chat_input):
         assistant_reply = ""
 
         if chat_input:
-            assistant_reply = run_workflow_filter(chat_input)
+            assistant_reply = get_response(chat_input)
 
         
 
@@ -81,7 +81,7 @@ def on_chat_submit(chat_input):
 st.title('FEYNMAN GRAPH 1.0')
 
 
-st.header('Primer sistema de IA especializado en mentorias de fisica para tempranas edades', divider='blue')
+st.header('Primer sistema de IA especializado en Fisica', divider='blue')
 
 
 

@@ -20,6 +20,7 @@ import time
 
 
 os.environ['GROQ_API_KEY'] 
+os.environ['OPENAI_API_KEY'] = "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"
 pinecone_api_key = os.environ['PINECONE_API_KEY']
 
 pc = Pinecone(api_key=pinecone_api_key)
