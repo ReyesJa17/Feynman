@@ -1,0 +1,516 @@
+import json
+import os
+from typing import Dict, TypedDict, List
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_groq import ChatGroq
+from langchain.prompts import PromptTemplate
+from langgraph.graph import StateGraph, END
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain_fireworks import Fireworks 
+import re
+from langchain.prompts import PromptTemplate
+os.environ["FIREWORKS_API_KEY"] = "AhpVH4aRCgCiyn54WGtsMMiNz5nEPByYu9KbnkbRE6ulrXcn"
+load_dotenv()
+os.environ['GROQ_API_KEY']
+os.environ['OPENAI_API_KEY']
+# Configure the LLM model
+llm = ChatGroq(
+    model="llama-3.1-70b-versatile",
+    temperature=0,
+)
+
+llm1 = Fireworks(
+    api_key="AhpVH4aRCgCiyn54WGtsMMiNz5nEPByYu9KbnkbRE6ulrXcn",
+    model="accounts/fireworks/models/llama-v3p1-405b-instruct",
+    max_tokens=256)
+
+
+llm2 = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+)
+
+
+verify_latex_prompt = PromptTemplate(
+    template="""You are an expert in LaTeX notation for physics and mathematics formulas. Verify and correct the following LaTeX formula:
+
+{formula}
+
+Instructions:
+1. Ensure all LaTeX commands are correct and complete (e.g., \\frac, \\partial, \\nabla).
+2. Properly represent Greek letters and special symbols (e.g., \\alpha, \\beta, \\hbar).
+3. Enclose the formula in \\( and \\) for inline or \\[ and \\] for display-style.
+4. Escape all backslashes and quotes for JSON compatibility.
+
+Output the result as a string containing a JSON object with a single key "corrected_formula". If no formula is found, use the value "No formula found".
+
+Example output:
+"{{\"corrected_formula\": \"\\\\(E = mc^2\\\\)\"}}"
+
+or
+
+"{{\"corrected_formula\": \"No formula found\"}}"
+
+Respond only with the JSON string, nothing else.
+""",
+    input_variables=["formula"]
+)
+create_index_prompt = PromptTemplate(
+    template="""You are an expert physicist tasked with creating concise descriptions for concepts in a physics textbook index. Your goal is to provide a brief yet informative explanation for each level of the given physics concept hierarchy.
+
+Context:
+Branch: {branch}
+Topic: {topic}
+Subtopic: {subtopic}
+Subsubtopic: {subsubtopic}
+
+Please provide a short description (30-50 words) for each level of the hierarchy. Your response should be in a simple JSON format with 'name' and 'description' fields for each level.
+
+Example format:
+{{
+  "branch": {{
+    "name": "Mechanics",
+    "description": "The study of motion and forces acting on objects, fundamental to understanding physical phenomena and the basis for many other branches of physics."
+  }},
+  "topic": {{
+    "name": "Kinematics",
+    "description": "The study of motion without considering its causes, focusing on position, velocity, and acceleration of objects in one or more dimensions."
+  }},
+  "subtopic": {{
+    "name": "Projectile Motion",
+    "description": "Analysis of the motion of objects thrown or launched into the air, combining horizontal and vertical components of motion under the influence of gravity."
+  }},
+  "subsubtopic": {{
+    "name": "Range of a Projectile",
+    "description": "The horizontal distance traveled by a projectile from its initial launch point to where it lands, determined by initial velocity, launch angle, and gravitational acceleration."
+  }}
+}}
+
+Please provide your response in this JSON format, ensuring each description is concise yet informative.""",
+    input_variables=["branch", "topic", "subtopic", "subsubtopic"]
+)
+
+# Define the prompts (unchanged)
+category_creator_prompt = PromptTemplate(
+    template="""You are an expert physicist tasked with generating a comprehensive list of relevant categories for a given physics topic structure. Your goal is to provide a detailed breakdown of important concepts and areas of study that are directly related to physical magnitudes and fundamental principles within the given subject area.
+
+    Area: Physics
+    Branch: {branch}
+    Topic: {topic}
+    Subtopic: {subtopic}
+    Subsubtopic: {subsubtopic}
+
+    Instructions:
+    1. Generate a list of 5-10 highly relevant categories that encompass key concepts, principles, and areas of study within the given subsubtopic.
+    2. Ensure each category can be directly divided into nodes representing physical magnitudes or fundamental concepts with mathematical relationships.
+    3. Avoid categories that are purely historical, biographical, or focused on experimental methods or graph creation.
+    4. Consider the hierarchical context (area, branch, topic, subtopic, subsubtopic) when creating categories.
+    5. Each category should have the potential for direct mathematical relationships between its components.
+
+    Requirements for categories:
+    - Must be divisible into physical magnitudes or fundamental concepts
+    - Should have potential for mathematical relationships between components
+    - Must be directly relevant to the given physics context
+    - Avoid categories that only have semantic relationships between components
+
+    Please provide your response in JSON format, focusing only on the 'categories' key. Each category should be a dictionary with 'name' and 'description' keys.
+
+    Example format:
+    {{
+      "categories": [
+        {{
+          "name": "Force Analysis",
+          "description": "Study of various forces acting on objects and their mathematical representations in the context of {subsubtopic}."
+        }},
+        {{
+          "name": "Energy Conservation",
+          "description": "Examination of energy transformations and the principle of energy conservation as applied to {subsubtopic}."
+        }}
+      ]
+    }}
+
+    Ensure that your categorization is thorough, mathematically relevant, and reflects the depth and breadth of physical principles within the subsubtopic.""",
+    input_variables=["branch", "topic", "subtopic", "subsubtopic"]
+)
+
+node_creator_prompt = PromptTemplate(
+    template="""You are an expert physicist tasked with identifying fundamental concepts (nodes) for a given category within a specific physics topic structure. Your goal is to create a precise list of 8-10 essential nodes that represent physical magnitudes or fundamental concepts, forming the mathematical foundation of the given category.
+
+Input Structure:
+Area: Physics
+Branch: {branch}
+Topic: {topic}
+Subtopic: {subtopic}
+Subsubtopic: {subsubtopic}
+Category: {category}
+
+Instructions:
+For the given category, generate a list of exactly 8-10 fundamental concepts (nodes) that meet the following criteria:
+
+1. Physical Nature: Each node MUST be either a physical magnitude (e.g., force, energy, momentum) or a fundamental concept with a clear mathematical definition.
+
+2. Mathematical Relationships: Nodes MUST have the potential for direct mathematical relationships with other nodes in the category. Avoid nodes that only have semantic connections.
+
+3. Contextual Relevance: Ensure each node is directly relevant to the specific [area, branch, topic, subtopic, subsubtopic, category] context provided.
+
+4. Quantifiable Nature: Prioritize nodes that can be quantified, measured, or expressed in mathematical equations within the context of the category.
+
+5. Fundamental Importance: Select nodes that are essential to understanding the core principles of the category, rather than derivative or overly specific concepts.
+
+6. Avoid Historical or Methodological Concepts: Do not include nodes related to historical developments, experimental methods, or non-physical concepts.
+
+7. Interconnectedness: Consider how the selected nodes can be mathematically related to each other within the framework of the category.
+
+Provide your response in JSON format with a 'nodes' key containing a list of node dictionaries. Each node should have 'name' and 'description' keys. The description should briefly explain the node's relevance to the category and its potential for mathematical relationships.
+
+Example format:
+{{
+  "nodes": [
+    {{
+      "name": "Force",
+      "description": "The physical quantity that causes an object to accelerate, measured in Newtons. Central to equations of motion in {category}."
+    }},
+    {{
+      "name": "Acceleration",
+      "description": "The rate of change of velocity over time, crucial for describing motion in {category}. Directly related to force through F = ma."
+    }}
+  ]
+}}
+
+Ensure that your nodes are fundamental physical concepts or magnitudes that can be mathematically related within the context of {category} and the broader topic structure.""",
+    input_variables=["branch", "topic", "subtopic", "subsubtopic", "category"]
+)
+
+relationship_creator_prompt = PromptTemplate(
+    template="""You are an expert in graph theory and theoretical physics. Your task is to construct a rigorous mathematical graph representing relationships between fundamental physics concepts. Respond ONLY with a valid JSON object.
+
+Input Structure:
+Branch: {branch}
+Topic: {topic}
+Subtopic: {subtopic}
+Subsubtopic: {subsubtopic}
+Category: {category}
+Nodes: {nodes}
+
+Instructions:
+1. Define the graph G = (V, E), where V is the set of vertices (nodes) representing the given physics concepts, and E is the set of edges representing the relationships between these concepts.
+
+2. For each pair or group of nodes, determine the most relevant physical relationship and express it using appropriate mathematical formalism. Consider:
+   a) Fundamental Laws (e.g., Newton's laws, Maxwell's equations)
+   b) Derived Relationships
+   c) Constraints and conservation laws
+   d) Statistical Relationships
+   e) Quantum Relationships for quantum physics topics
+
+3. Use the following operations to describe edge relationships:
+   - Equality (=), Multiplication (*), Derivation (d/dt), Integration (∫)
+   - Proportionality (∝), Transformation (T)
+   - Vector Operations: (+), (·), (×)
+   - Tensor Operations: Contraction, Outer Product, etc.
+   - Differential Operators: ∇, ∇·, ∇×, ∇²
+
+4. Ensure all equations are dimensionally consistent and use standard physics notation, escaping special characters for JSON compatibility.
+
+5. If concepts are not directly related with a mathematical formula, use "No formula found" for the formula field.
+
+6. RESPOND ONLY WITH THE FOLLOWING JSON STRUCTURE:
+
+{{
+  "graph_structure": {{
+    "edges": [
+      {{
+        "source": "<source_node>",
+        "target": "<target_node>",
+        "relationship": "<relationship_type>",
+        "formula": "<mathematical_formula_or_No_formula_found>",
+        "description": "<brief_physical_significance>",
+        "category": "<category_name>"
+      }},
+      ...
+    ]
+  }}
+}}
+
+Do not include any text before or after the JSON object. Ensure the JSON is valid and properly formatted.
+
+If you cannot generate a valid JSON response, return only the following error JSON:
+{{
+  "error": "Unable to generate valid JSON response"
+}}
+""",
+    input_variables=["branch", "topic", "subtopic", "subsubtopic", "category", "nodes"]
+)
+# Define the chains
+create_index_chain = create_index_prompt | llm | JsonOutputParser()
+category_creator_chain = category_creator_prompt | llm | JsonOutputParser()
+node_creator_chain = node_creator_prompt | llm | JsonOutputParser()
+relationship_creator_chain = relationship_creator_prompt | llm | JsonOutputParser()
+verify_latex_prompt_chain = verify_latex_prompt | llm | JsonOutputParser()
+
+# Define the graph state
+class GraphState(TypedDict):
+    branch: str
+    topic: str
+    subtopic: str
+    subsubtopic: str
+    categories: List[Dict]
+    nodes: List[Dict]
+    relationships: List[Dict]
+
+# Define node functions
+def create_categories(state: GraphState) -> Dict:
+    result = category_creator_chain.invoke(state)
+    print(f"Categories created: {result}")
+    return {"categories": result["categories"]}
+
+def create_nodes(state: GraphState) -> Dict:
+    nodes = []
+    failed_categories = []
+    
+    for category in state["categories"]:
+        if isinstance(category, dict) and "name" in category:
+            category_name = category["name"]
+        elif isinstance(category, str):
+            category_name = category
+        else:
+            print(f"Unexpected category format: {category}")
+            continue
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                result = invoke_with_retry(node_creator_chain, {**state, "category": category_name})
+                
+                if isinstance(result, dict) and "nodes" in result:
+                    for node in result["nodes"]:
+                        node["category"] = category_name
+                    nodes.extend(result["nodes"])
+                    print(f"Nodes created for {category_name}: {result}")
+                    break  # Successfully processed this category, move to the next
+                else:
+                    raise InvalidJSONError(f"Unexpected result format for category '{category_name}': {result}")
+                
+            except InvalidJSONError as e:
+                print(f"Error creating nodes for {category_name} (Attempt {attempt + 1}/{max_retries}): {str(e)}")
+                if attempt == max_retries - 1:
+                    print(f"Failed to process category {category_name} after {max_retries} attempts.")
+                    failed_categories.append(category_name)
+                else:
+                    print(f"Retrying in {5 * (attempt + 1)} seconds...")
+                    time.sleep(5 * (attempt + 1))
+            except Exception as e:
+                print(f"Unexpected error for {category_name}: {str(e)}")
+                failed_categories.append(category_name)
+                break  # Move to the next category for non-JSON related errors
+    
+    if failed_categories:
+        print(f"The following categories failed to create nodes: {', '.join(failed_categories)}")
+    
+    return {"nodes": nodes, "failed_categories": failed_categories}
+
+def clean_latex_output(output: str) -> str:
+    try:
+        # Parse the JSON string
+        parsed_output = json.loads(output)
+        formula = parsed_output.get("corrected_formula", "")
+        
+        if formula == "No formula found":
+            return formula
+        
+        # Remove any remaining escape characters
+        formula = formula.replace('\\\\', '\\')
+        
+        # Ensure the formula is properly wrapped
+        if not (formula.startswith('\\(') and formula.endswith('\\)')) and \
+           not (formula.startswith('\\[') and formula.endswith('\\]')):
+            formula = f'\\({formula}\\)'
+        
+        return formula
+    except json.JSONDecodeError:
+        print(f"Error: Invalid JSON output - {output}")
+        return "Error: Invalid LaTeX formula"
+import json
+import time
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from groq import InternalServerError
+
+class InvalidJSONError(Exception):
+    pass
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=4, max=60),
+    retry=retry_if_exception_type((InternalServerError, InvalidJSONError))
+)
+def invoke_with_retry(chain, inputs):
+    result = chain.invoke(inputs)
+    try:
+        if isinstance(result, str):
+            json.loads(result)  # Try to parse the result as JSON
+        elif isinstance(result, dict):
+            json.dumps(result)  # Try to serialize the result to JSON
+        else:
+            raise InvalidJSONError("Unexpected result type")
+    except json.JSONDecodeError:
+        raise InvalidJSONError("Invalid JSON output")
+    return result
+
+def create_relationships(state: GraphState) -> Dict:
+    relationships = []
+    failed_categories = []
+    
+    for category in state["categories"]:
+        if isinstance(category, dict) and "name" in category:
+            category_name = category["name"]
+        elif isinstance(category, str):
+            category_name = category
+        else:
+            print(f"Unexpected category format: {category}")
+            continue
+        
+        category_nodes = [node for node in state["nodes"] if isinstance(node, dict) and node.get("category") == category_name]
+        node_names = [node["name"] for node in category_nodes if isinstance(node, dict) and "name" in node]
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                result = invoke_with_retry(relationship_creator_chain, {
+                    **state,
+                    "category": category_name,
+                    "nodes": node_names
+                })
+                
+                if isinstance(result, dict) and "graph_structure" in result and "edges" in result["graph_structure"]:
+                    for edge in result["graph_structure"]["edges"]:
+                        original_formula = edge.get("formula", "")
+                        try:
+                            latex_output = invoke_with_retry(verify_latex_prompt_chain, {"formula": original_formula})
+                            
+                            if isinstance(latex_output, dict):
+                                latex_output = json.dumps(latex_output)
+                            
+                            corrected_formula = clean_latex_output(latex_output)
+                            
+                            if corrected_formula != "Error: Invalid LaTeX formula":
+                                edge["formula"] = corrected_formula
+                            else:
+                                edge["formula"] = original_formula
+                        except Exception as e:
+                            print(f"Error verifying LaTeX for formula '{original_formula}': {str(e)}")
+                            edge["formula"] = original_formula
+
+                    relationships.extend(result["graph_structure"]["edges"])
+                    break  # Successfully processed this category, move to the next
+                else:
+                    raise InvalidJSONError(f"Unexpected result format for category '{category_name}': {result}")
+                    
+            except InvalidJSONError as e:
+                print(f"Error creating relationships for {category_name} (Attempt {attempt + 1}/{max_retries}): {str(e)}")
+                if attempt == max_retries - 1:
+                    print(f"Failed to process category {category_name} after {max_retries} attempts.")
+                    failed_categories.append(category_name)
+                else:
+                    print(f"Retrying in {5 * (attempt + 1)} seconds...")
+                    time.sleep(5 * (attempt + 1))
+            except Exception as e:
+                print(f"Unexpected error for {category_name}: {str(e)}")
+                failed_categories.append(category_name)
+                break  # Move to the next category for non-JSON related errors
+    
+    if failed_categories:
+        print(f"The following categories failed to process: {', '.join(failed_categories)}")
+    
+    return {"relationships": relationships, "failed_categories": failed_categories}
+# Build the graph
+workflow = StateGraph(GraphState)
+
+# Add nodes to the graph
+workflow.add_node("create_categories", create_categories)
+workflow.add_node("create_nodes", create_nodes)
+workflow.add_node("create_relationships", create_relationships)
+
+# Define the graph flow
+workflow.set_entry_point("create_categories")
+workflow.add_edge("create_categories", "create_nodes")
+workflow.add_edge("create_nodes", "create_relationships")
+workflow.add_edge("create_relationships", END)
+
+# Compile the graph
+app = workflow.compile()
+
+def process_topic(branch, topic, subtopic, subsubtopic):
+    inputs = {
+        "branch": branch,
+        "topic": topic,
+        "subtopic": subtopic,
+        "subsubtopic": subsubtopic
+    }
+    
+    result = {}
+    for output in app.stream(inputs):
+        result.update(output)
+    
+    return result
+def create_index(branch, topic, subtopic, subsubtopic):
+    inputs = {
+        "branch": branch,
+        "topic": topic,
+        "subtopic": subtopic,
+        "subsubtopic": subsubtopic
+    }
+    result = create_index_chain.invoke(inputs)
+    return result
+
+
+    
+
+def save_progress(results, output_file):
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+def process_json_tree(json_data, output_file):
+    results = []
+    for branch, branch_content in json_data.items():
+        for topic, topic_content in branch_content.items():
+            for subtopic, subtopic_content in topic_content.items():
+                if isinstance(subtopic_content, dict):
+                    for subsubtopic in subtopic_content.keys():
+                        resul=create_index(branch, topic, subtopic, subsubtopic)
+                        result = process_topic(branch, topic, subtopic, subsubtopic)
+                        results.append({
+                            "context": resul,
+                            "data": result
+                        })
+                        save_progress(results, output_file)  # Save after each subsubtopic
+                else:
+                    resul=create_index(branch, topic, subtopic, subsubtopic)
+                    result = process_topic(branch, topic, subtopic, subsubtopic)
+                    results.append({
+                            "context": resul,
+                            "data": result
+                        })
+                    save_progress(results, output_file)  # Save after each subtopic
+                print(f"Processed and saved: {branch} - {topic} - {subtopic}")
+    return results
+if __name__ == "__main__":
+    input_file = 'Graphs\\termo.json'
+
+    output_file = 'inidiceGraphTermo10.json'
+
+    try:
+        with open(input_file, 'r', encoding='utf-8') as file:
+            json_data = json.load(file)
+    except FileNotFoundError:
+        print(f"Error: The file '{input_file}' was not found.")
+        print(f"Current working directory: {os.getcwd()}")
+        print("Files in the current directory:")
+        for file in os.listdir():
+            print(f"  {file}")
+        exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: The file '{input_file}' does not contain valid JSON.")
+        print(f"JSON error: {str(e)}")
+        exit(1)
+
+    final_results = process_json_tree(json_data, output_file)
+    save_progress(final_results, output_file)
+    print("Processing complete. Results saved to", output_file)
